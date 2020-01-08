@@ -15,9 +15,15 @@ if(NOT IDF_TARGET)
         "in by the parent build process.")
 endif()
 
+if(NOT ESP_CMAKE_TOOL_DIR)
+	message(FATAL_ERROR "Bootloader subproject expects the ESP_CMAKE_TOOL_DIR variable to be passed "
+        "in by the parent build process.")
+endif()
+
 set(COMPONENTS bootloader esptool_py partition_table soc bootloader_support log spi_flash micro-ecc main efuse)
 set(BOOTLOADER_BUILD 1)
-include("${IDF_PATH}/tools/cmake/project.cmake")
+#include("${IDF_PATH}/tools/cmake/project.cmake")
+include("${ESP_CMAKE_TOOL_DIR}/project.cmake")
 set(common_req log esp_rom esp_common xtensa)
 if(LEGACY_INCLUDE_COMMON_HEADERS)
     list(APPEND common_req soc)
@@ -75,8 +81,7 @@ if(CONFIG_SECURE_BOOTLOADER_REFLASHABLE)
     add_custom_command(OUTPUT "${bootloader_digest_bin}"
         COMMAND ${CMAKE_COMMAND} -E echo "DIGEST ${bootloader_digest_bin}"
         COMMAND ${ESPSECUREPY} digest_secure_bootloader --keyfile "${secure_bootloader_key}"
-        -o "${bootloader_digest_bin}" "${CMAKE_BINARY_DIR}/bootloader.bin"
-        MAIN_DEPENDENCY gen_project_binary
+            -o "${bootloader_digest_bin}" "${CMAKE_BINARY_DIR}/bootloader.bin"
         DEPENDS gen_secure_bootloader_key gen_project_binary
         VERBATIM)
 
