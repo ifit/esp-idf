@@ -1,3 +1,6 @@
+if(NOT BOOTLOADER_BUILD)
+    message(FATAL_ERROR "This File should not be used")
+endif()
 get_property(__idf_env_set GLOBAL PROPERTY __IDF_ENV_SET)
 if(NOT __idf_env_set)
     # Infer an IDF_PATH relative to the tools/cmake directory

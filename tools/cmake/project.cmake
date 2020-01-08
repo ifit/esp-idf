@@ -1,3 +1,4 @@
+message(FATAL_ERROR "This File should not be used")
 # Designed to be included from an IDF app's CMakeLists.txt file
 cmake_minimum_required(VERSION 3.5)
 

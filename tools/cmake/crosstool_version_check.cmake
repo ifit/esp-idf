@@ -1,3 +1,6 @@
+if(NOT BOOTLOADER_BUILD)
+    message(FATAL_ERROR "This File should not be used")
+endif()
 # Function to check the toolchain used the expected version
 # of crosstool, and warn otherwise
 

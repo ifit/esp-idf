@@ -1,3 +1,4 @@
+message(FATAL_ERROR "This File should not be used")
 # Utilities for supporting linker script generation in the build system
 
 # __ldgen_add_fragment_files

@@ -1,3 +1,6 @@
+if(NOT BOOTLOADER_BUILD)
+    message(FATAL_ERROR "This File should not be used")
+endif()
 #
 # Internal function for retrieving component properties from a component target.
 #

@@ -1,3 +1,4 @@
+message(FATAL_ERROR "This File should not be used")
 #
 # Set the target used for the standard project build.
 #

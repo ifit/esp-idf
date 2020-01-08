@@ -1,3 +1,6 @@
+if(NOT BOOTLOADER_BUILD)
+    message(FATAL_ERROR "This File should not be used")
+endif()
 find_package(Git)
 
 if(NOT GIT_FOUND)
