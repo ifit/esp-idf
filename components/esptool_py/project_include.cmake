@@ -161,6 +161,7 @@ add_custom_target(erase_flash
     USES_TERMINAL
     )
 
+set(MONITOR_PATH "$ENV{PATH}:${ESPRESSIF_TOOLCHAIN_PATH}")
 add_custom_target(monitor
     COMMAND ${CMAKE_COMMAND}
     -D IDF_PATH="${idf_path}"
@@ -170,6 +171,7 @@ add_custom_target(monitor
     -D ESP_CMAKE_TOOL_DIR="${ESP_CMAKE_TOOL_DIR}"
     -D ESPPORT="${ESPPORT}"
     -D ESPBAUD="${ESPBAUD}"
+    -D MONITOR_PATH="${MONITOR_PATH}"
     -P run_idf_monitor.cmake
     WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
     USES_TERMINAL
