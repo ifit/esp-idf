@@ -23,6 +23,7 @@
 #include <stdbool.h>
 #include "nimble/ble.h"
 #include "modlog/modlog.h"
+#include "host/ble_hs_resolv.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -48,6 +49,8 @@ int scli_receive_key(int *key);
 /** Misc. */
 void print_bytes(const uint8_t *bytes, int len);
 void print_addr(const void *addr);
+int ble_hs_pvcy_rpa_config(uint8_t enable);
+
 
 #ifdef __cplusplus
 }

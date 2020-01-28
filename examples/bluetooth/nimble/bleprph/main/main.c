@@ -28,6 +28,7 @@
 #include "console/console.h"
 #include "services/gap/ble_svc_gap.h"
 #include "bleprph.h"
+#include "host/ble_hs_id.h"
 
 static const char *tag = "NimBLE_BLE_PRPH";
 static int bleprph_gap_event(struct ble_gap_event *event, void *arg);
@@ -116,10 +117,21 @@ bleprph_advertise(void)
         return;
     }
 
+
     /* Begin advertising. */
     memset(&adv_params, 0, sizeof adv_params);
     adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
     adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
+
+    /* Enable local privacy */
+    uint8_t addr_val[6] = {0};
+
+    rc = ble_hs_id_copy_addr(own_addr_type, addr_val, NULL);
+
+    MODLOG_DFLT(INFO, "Device ID Address: ");
+    print_addr(addr_val);
+    MODLOG_DFLT(INFO, "\n");
+
     rc = ble_gap_adv_start(own_addr_type, NULL, BLE_HS_FOREVER,
                            &adv_params, bleprph_gap_event, NULL);
     if (rc != 0) {
@@ -159,6 +171,7 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
             rc = ble_gap_conn_find(event->connect.conn_handle, &desc);
             assert(rc == 0);
             bleprph_print_conn_desc(&desc);
+            rc = ble_gap_security_initiate(event->connect.conn_handle);
         }
         MODLOG_DFLT(INFO, "\n");
 
@@ -308,14 +321,14 @@ bleprph_on_sync(void)
         return;
     }
 
-    /* Printing ADDR */
-    uint8_t addr_val[6] = {0};
-    rc = ble_hs_id_copy_addr(own_addr_type, addr_val, NULL);
-
-    MODLOG_DFLT(INFO, "Device Address: ");
-    print_addr(addr_val);
-    MODLOG_DFLT(INFO, "\n");
     /* Begin advertising. */
+    own_addr_type = BLE_OWN_ADDR_RANDOM;
+    uint8_t enable = 1;
+    rc = ble_hs_pvcy_rpa_config(enable);
+    if (rc) {
+        ESP_LOGE(tag, "Error while configuring local RPA");
+    }
+
     bleprph_advertise();
 }
 
@@ -361,18 +374,18 @@ app_main(void)
     ble_hs_cfg.sm_sc = 1;
 #else
     ble_hs_cfg.sm_sc = 0;
-#ifdef CONFIG_EXAMPLE_BONDING
-    ble_hs_cfg.sm_our_key_dist = 1;
-    ble_hs_cfg.sm_their_key_dist = 1;
-#endif
 #endif
 
+    ble_hs_cfg.sm_our_key_dist = BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID;
+    /* Refer components/nimble/nimble/nimble/host/include/host/ble_sm.h for
+     * more information */
+    ble_hs_cfg.sm_their_key_dist = BLE_SM_PAIR_KEY_DIST_ENC | BLE_SM_PAIR_KEY_DIST_ID;
 
     rc = gatt_svr_init();
     assert(rc == 0);
 
     /* Set the default device name. */
-    rc = ble_svc_gap_device_name_set("nimble-bleprph");
+    rc = ble_svc_gap_device_name_set("Host_RPA_Adv");
     assert(rc == 0);
 
     /* XXX Need to have template for store */
