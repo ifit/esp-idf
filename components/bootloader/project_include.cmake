@@ -103,6 +103,7 @@ externalproject_add(bootloader
     SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/subproject"
     BINARY_DIR "${BOOTLOADER_BUILD_DIR}"
     CMAKE_ARGS  -DSDKCONFIG=${sdkconfig} -DIDF_PATH=${idf_path} -DIDF_TARGET=${idf_target} -DPYTHON=${python}
+                -DESP_CMAKE_TOOL_DIR=${ESP_CMAKE_TOOL_DIR} -DICON_TOOLCHAIN_DIR=${ICON_TOOLCHAIN_DIR}
                 -DPYTHON_DEPS_CHECKED=1
                 -DEXTRA_COMPONENT_DIRS=${CMAKE_CURRENT_LIST_DIR}
                 ${sign_key_arg} ${ver_key_arg}

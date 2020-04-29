@@ -1,4 +1,6 @@
-
+if(NOT BOOTLOADER_BUILD)
+    message(FATAL_ERROR "This File should not be used")
+endif()
 # idf_build_get_property
 #
 # @brief Retrieve the value of the specified property related to ESP-IDF build.

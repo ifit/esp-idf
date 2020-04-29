@@ -1,3 +1,5 @@
+
+message(FATAL_ERROR "This File should not be used")
 # - Returns a version string from Git
 #
 # These functions force a re-configure on each git commit so that you can

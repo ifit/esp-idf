@@ -1,3 +1,4 @@
+message(FATAL_ERROR "This File should not be used")
 set(CMAKE_SYSTEM_NAME Generic)
 
 set(CMAKE_C_COMPILER xtensa-esp32-elf-gcc)

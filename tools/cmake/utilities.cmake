@@ -1,3 +1,4 @@
+message(FATAL_ERROR "This File should not be used")
 # set_default
 #
 # Define a variable to a default value if otherwise unset.
