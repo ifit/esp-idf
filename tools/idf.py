@@ -236,6 +236,7 @@ def _ensure_build_directory(args, always_run_cmake=False):
             ]
             if not args.no_warnings:
                 cmake_args += ["--warn-uninitialized"]
+                cmake_args += ["-DWARN_UNINITIALIZED=1"]
 
             if args.define_cache_entry:
                 cmake_args += ["-D" + d for d in args.define_cache_entry]
@@ -364,7 +365,7 @@ def erase_flash(action, ctx, args):
     _run_tool("esptool.py", esptool_args, args.build_dir)
 
 
-def monitor(action, ctx, args, print_filter):
+def monitor(action, ctx, args, print_filter, monitor_baud, encrypted):
     """
     Run idf_monitor.py to watch build output
     """
@@ -387,10 +388,23 @@ def monitor(action, ctx, args, print_filter):
     monitor_args = [PYTHON, idf_monitor]
     if args.port is not None:
         monitor_args += ["-p", args.port]
-    monitor_args += ["-b", project_desc["monitor_baud"]]
+
+    if not monitor_baud:
+        if os.getenv("IDF_MONITOR_BAUD"):
+            monitor_baud = os.getenv("IDF_MONITOR_BAUD", None)
+        elif os.getenv("MONITORBAUD"):
+            monitor_baud = os.getenv("MONITORBAUD", None)
+        else:
+            monitor_baud = project_desc["monitor_baud"]
+
+    monitor_args += ["-b", monitor_baud]
+
     if print_filter is not None:
         monitor_args += ["--print_filter", print_filter]
     monitor_args += [elf_file]
+
+    if encrypted:
+        monitor_args += ['--encrypted']
 
     idf_py = [PYTHON] + get_commandline_options(ctx)  # commands to re-run idf.py
     monitor_args += ["-m", " ".join("'%s'" % a for a in idf_py)]
@@ -928,6 +942,14 @@ def init_cli():
             args.build_dir = os.path.join(args.project_dir, "build")
         args.build_dir = _realpath(args.build_dir)
 
+    def serial_action_global_callback(ctx, global_args, tasks):
+        encryption = any([task.name in ("encrypted-flash", "encrypted-app-flash") for task in tasks])
+        if encryption:
+            for task in tasks:
+                if task.name == "monitor":
+                    task.action_args["encrypted"] = True
+                    break
+
     # Possible keys for action dict are: global_options, actions and global_action_callbacks
     global_options = [
         {
@@ -966,9 +988,9 @@ def init_cli():
             },
             {
                 "names": ["--ccache/--no-ccache"],
-                "help": "Use ccache in build. Disabled by default.",
+                "help": "Use ccache in build. Disabled by default, unless IDF_CCACHE_ENABLE environment variable is set to a non-zero value.",
                 "is_flag": True,
-                "default": False,
+                "default": os.getenv("IDF_CCACHE_ENABLE") not in [None, "", "0"],
             },
             {
                 "names": ["-G", "--generator"],
@@ -1107,7 +1129,7 @@ def init_cli():
 
     baud_rate = {
         "names": ["-b", "--baud"],
-        "help": "Baud rate.",
+        "help": "Baud rate for flashing.",
         "scope": "global",
         "envvar": "ESPBAUD",
         "default": 460800,
@@ -1139,27 +1161,46 @@ def init_cli():
                 "callback": monitor,
                 "help": "Display serial output.",
                 "options": [
-                    port,
-                    {
+                    port, {
                         "names": ["--print-filter", "--print_filter"],
-                        "help": (
-                            "Filter monitor output.\n"
-                            "Restrictions on what to print can be specified as a series of <tag>:<log_level> items "
-                            "where <tag> is the tag string and <log_level> is a character from the set "
-                            "{N, E, W, I, D, V, *} referring to a level. "
-                            'For example, "tag1:W" matches and prints only the outputs written with '
-                            'ESP_LOGW("tag1", ...) or at lower verbosity level, i.e. ESP_LOGE("tag1", ...). '
-                            'Not specifying a <log_level> or using "*" defaults to Verbose level.\n'
-                            'Please see the IDF Monitor section of the ESP-IDF documentation '
-                            'for a more detailed description and further examples.'),
-                        "default": None,
-                    },
+                        "help":
+                        ("Filter monitor output.\n"
+                         "Restrictions on what to print can be specified as a series of <tag>:<log_level> items "
+                         "where <tag> is the tag string and <log_level> is a character from the set "
+                         "{N, E, W, I, D, V, *} referring to a level. "
+                         'For example, "tag1:W" matches and prints only the outputs written with '
+                         'ESP_LOGW("tag1", ...) or at lower verbosity level, i.e. ESP_LOGE("tag1", ...). '
+                         'Not specifying a <log_level> or using "*" defaults to Verbose level.\n'
+                         'Please see the IDF Monitor section of the ESP-IDF documentation '
+                         'for a more detailed description and further examples.'),
+                        "default":
+                        None,
+                    }, {
+                        "names": ["--monitor-baud", "-B"],
+                        "type":
+                        click.INT,
+                        "help": ("Baud rate for monitor.\n"
+                                 "If this option is not provided IDF_MONITOR_BAUD and MONITORBAUD "
+                                 "environment variables and project_description.json in build directory "
+                                 "(generated by CMake from project's sdkconfig) "
+                                 "will be checked for default value."),
+                    }, {
+                        "names": ["--encrypted", "-E"],
+                        "is_flag": True,
+                        "help": ("Enable encrypted flash targets.\n"
+                                 "IDF Monitor will invoke encrypted-flash and encrypted-app-flash targets "
+                                 "if this option is set. This option is set by default if IDF Monitor was invoked "
+                                 "together with encrypted-flash or encrypted-app-flash target."),
+                    }
+
                 ],
                 "order_dependencies": [
                     "flash",
+                    "encrypted-flash",
                     "partition_table-flash",
                     "bootloader-flash",
                     "app-flash",
+                    "encrypted-app-flash",
                 ],
             },
             "partition_table-flash": {
@@ -1196,6 +1237,7 @@ def init_cli():
                 "order_dependencies": ["erase_flash"],
             },
         },
+        "global_action_callbacks": [serial_action_global_callback],
     }
 
     base_actions = CLI.merge_action_lists(

@@ -310,7 +310,8 @@ if(CONFIG_BT_ENABLED)
                     "esp_ble_mesh/api/models/include"
                     "esp_ble_mesh/api")
 
-        list(APPEND srcs "esp_ble_mesh/api/core/esp_ble_mesh_common_api.c"
+        list(APPEND srcs "esp_ble_mesh/api/core/esp_ble_mesh_ble_api.c"
+                    "esp_ble_mesh/api/core/esp_ble_mesh_common_api.c"
                     "esp_ble_mesh/api/core/esp_ble_mesh_local_data_operation_api.c"
                     "esp_ble_mesh/api/core/esp_ble_mesh_low_power_api.c"
                     "esp_ble_mesh/api/core/esp_ble_mesh_networking_api.c"
@@ -349,7 +350,6 @@ if(CONFIG_BT_ENABLED)
                     "esp_ble_mesh/mesh_core/main.c"
                     "esp_ble_mesh/mesh_core/net.c"
                     "esp_ble_mesh/mesh_core/prov.c"
-                    "esp_ble_mesh/mesh_core/provisioner_beacon.c"
                     "esp_ble_mesh/mesh_core/provisioner_main.c"
                     "esp_ble_mesh/mesh_core/provisioner_prov.c"
                     "esp_ble_mesh/mesh_core/proxy_client.c"
@@ -465,6 +465,7 @@ if(CONFIG_BT_ENABLED)
                     "host/nimble/nimble/nimble/host/src/ble_hs_adv.c"
                     "host/nimble/nimble/nimble/host/src/ble_hs_hci.c"
                     "host/nimble/nimble/nimble/host/src/ble_hs_hci_util.c"
+                    "host/nimble/nimble/nimble/host/src/ble_hs_resolv.c"
                     "host/nimble/nimble/nimble/host/store/ram/src/ble_store_ram.c"
                     "host/nimble/nimble/nimble/host/store/config/src/ble_store_config.c"
                     "host/nimble/nimble/nimble/host/store/config/src/ble_store_nvs.c"
@@ -480,7 +481,8 @@ if(CONFIG_BT_ENABLED)
                     "host/nimble/nimble/porting/nimble/src/mem.c"
                     "host/nimble/nimble/porting/nimble/src/os_mbuf.c"
                     "host/nimble/nimble/porting/nimble/src/os_cputime.c"
-                    "host/nimble/esp-hci/src/esp_nimble_hci.c")
+                    "host/nimble/esp-hci/src/esp_nimble_hci.c"
+                    "host/nimble/port/src/esp_nimble_mem.c")
 
         if (CONFIG_BLE_MESH)
             list(APPEND srcs "esp_ble_mesh/mesh_core/nimble_host/mesh_bearer_adapt.c")

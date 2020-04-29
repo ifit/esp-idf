@@ -92,7 +92,7 @@ menu "LWIP"
 
     config LWIP_IP_FRAG
         bool "Enable fragment outgoing IP packets"
-        default n
+        default y
         help
             Enabling this option allows fragmenting outgoing IP packets if their size
             exceeds MTU.
@@ -239,6 +239,14 @@ menu "LWIP"
             If rate limiting self-assignment requests, wait this long between
             each request.
 
+    config LWIP_IPV6_AUTOCONFIG
+        bool "Enable IPV6 stateless address autoconfiguration"
+        default n
+        help
+            Enabling this option allows the devices to IPV6 stateless address autoconfiguration.
+
+            See RFC 4862.
+
     menuconfig LWIP_NETIF_LOOPBACK
         bool "Support per-interface loopback"
         default y
@@ -320,7 +328,8 @@ menu "LWIP"
         config LWIP_TCP_SND_BUF_DEFAULT
             int "Default send buffer size"
             default 5744  # 4 * default MSS
-            range 2440 65535
+            range 2440 65535 if !LWIP_WND_SCALE
+            range 2440 1024000 if LWIP_WND_SCALE
             help
                 Set default send buffer size for new TCP sockets.
 
@@ -336,7 +345,8 @@ menu "LWIP"
         config LWIP_TCP_WND_DEFAULT
             int "Default receive window size"
             default 5744 # 4 * default MSS
-            range 2440 65535
+            range 2440 65535 if !LWIP_WND_SCALE
+            range 2440 1024000 if LWIP_WND_SCALE
             help
                 Set default TCP receive window size for new TCP sockets.
 

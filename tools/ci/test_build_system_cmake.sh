@@ -48,7 +48,7 @@ function run_tests()
     if [ -z $CHECKOUT_REF_SCRIPT ]; then
         git checkout ${CI_BUILD_REF_NAME} || echo "Using esp-idf-template default branch..."
     else
-        $CHECKOUT_REF_SCRIPT esp-idf-template
+        $CHECKOUT_REF_SCRIPT esp-idf-template .
     fi
 
     print_status "Try to clean fresh directory..."
@@ -395,6 +395,10 @@ function run_tests()
     (grep '"command"' build/compile_commands.json | grep -v mfix-esp32-psram-cache-issue) && failure "All commands in compile_commands.json should use PSRAM cache workaround"
     rm -r build
 
+    print_status "Displays partition table when executing target partition_table"
+    idf.py partition_table | grep -E "# Espressif .+ Partition Table"
+    rm -r build
+
     print_status "Make sure a full build never runs '/usr/bin/env python' or similar"
     OLDPATH="$PATH"
     PYTHON="$(which python)"
@@ -465,11 +469,11 @@ endmenu\n" >> ${IDF_PATH}/Kconfig;
 
     print_status "Check ccache is used to build"
     touch ccache && chmod +x ccache  # make sure that ccache is present for this test
-    (export PATH=$PWD:$PATH && idf.py --ccache reconfigure | grep "ccache will be used for faster builds") || failure "ccache should be used when --cache is specified"
+    (export PATH=$PWD:$PATH && idf.py --ccache reconfigure | grep "ccache will be used") || failure "ccache should be used when --cache is specified"
     idf.py fullclean
-    (export PATH=$PWD:$PATH && idf.py reconfigure| grep -c "ccache will be used for faster builds" | grep -wq 0) \
+    (export PATH=$PWD:$PATH && idf.py reconfigure| grep -c "ccache will be used" | grep -wq 0) \
         || failure "ccache should not be used even when present if --ccache is not specified"
-    (export PATH=$PWD:$PATH && idf.py --no-ccache reconfigure| grep -c "ccache will be used for faster builds" | grep -wq 0) \
+    (export PATH=$PWD:$PATH && idf.py --no-ccache reconfigure| grep -c "ccache will be used" | grep -wq 0) \
         || failure "--no-ccache causes no issue for backward compatibility"
     rm -f ccache
 

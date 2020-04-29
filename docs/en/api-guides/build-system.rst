@@ -99,6 +99,18 @@ Advanced Commands
 
 The order of multiple ``idf.py`` commands on the same invocation is not important, they will automatically be executed in the correct order for everything to take effect (ie building before flashing, erasing before flashing, etc.).
 
+idf.py options
+^^^^^^^^^^^^^^
+
+To list all available options, run ``idf.py --help``.
+
+- ``-C <dir>`` allows overriding the project directory from the default current working directory.
+- ``-B <dir>`` allows overriding the build directory from the default ``build`` subdirectory of the project directory.
+- ``--ccache`` flag can be used to enable CCache_ when compiling source files, if the CCache_ tool is installed. This can dramatically reduce some build times.
+
+Note that some older versions of CCache may exhibit bugs on some platforms, so if files are not rebuilt as expected then try disabling ccache and build again. CCache can be enabled by default by setting the ``IDF_ENABLE_CCACHE`` environment variable to a non-zero value.
+- ``-v`` flag causes both ``idf.py`` and the build system to produce verbose build output. This can be useful for debugging build problems.
+
 Using CMake Directly
 --------------------
 
@@ -161,14 +173,15 @@ For more detailed information about integrating ESP-IDF with CMake into an IDE, 
 
 .. _setting-python-interpreter:
 
-Setting the Python Interpreter
-------------------------------
+Setting up the Python Interpreter
+---------------------------------
 
-Currently, ESP-IDF only works with Python 2.7. If you have a system where the default ``python`` interpreter is Python 3.x, this can lead to problems.
+ESP-IDF works well with all supported Python versions. It should work out-of-box even if you have a legacy system where the default ``python`` interpreter is still Python 2.7, however, it is advised to switch to Python 3 if possible.
 
-If using ``idf.py``, running ``idf.py`` as ``python2 $IDF_PATH/tools/idf.py ...`` will work around this issue (``idf.py`` will tell other Python processes to use the same Python interpreter). You can set up a shell alias or another script to simplify the command.
+``idf.py`` and other Python scripts will run with the default Python interpreter, i.e. ``python``. You can switch to a
+different one like ``python3 $IDF_PATH/tools/idf.py ...``, or you can set up a shell alias or another script to simplify the command.
 
-If using CMake directly, running ``cmake -D PYTHON=python2 ...`` will cause CMake to override the default Python interpreter.
+If using CMake directly, running ``cmake -D PYTHON=python3 ...`` will cause CMake to override the default Python interpreter.
 
 If using an IDE with CMake, setting the ``PYTHON`` value as a CMake cache override in the IDE UI will override the default Python interpreter.
 
@@ -1409,6 +1422,8 @@ The tool will convert the project Makefile and any component ``component.mk`` fi
 
 It does so by running ``make`` to expand the ESP-IDF build system variables which are set by the build, and then producing equivalent CMakelists files to set the same variables.
 
+.. important:: When the conversion tool converts a ``component.mk`` file, it doesn't determine what other components that component depends on. This information needs to be added manually by editing the new component ``CMakeLists.txt`` file and adding ``REQUIRES`` and/or ``PRIV_REQUIRES`` clauses. Otherwise, source files in the component will fail to compile as headers from other components are not found. See :ref:`component requirements`.
+
 The conversion tool is not capable of dealing with complex Makefile logic or unusual targets. These will need to be converted by hand.
 
 No Longer Available in CMake
@@ -1474,3 +1489,4 @@ Flashing from make
 .. _quirc: https://github.com/dlbeer/quirc
 .. _pyenv: https://github.com/pyenv/pyenv#README
 .. _virtualenv: https://virtualenv.pypa.io/en/stable/
+.. _CCache: https://ccache.dev/
