@@ -355,3 +355,11 @@ config BT_NIMBLE_CRYPTO_STACK_MBEDTLS
     help
         Enable this option to choose mbedTLS instead of TinyCrypt for crypto
         computations.
+
+config BT_NIMBLE_BLE_GATT_MAX_PROCS
+    int "Max number of BLE Gatt processes"
+    default 4
+    range 4 20
+    depends on BT_NIMBLE_ENABLED
+    help
+        This value defines the max number of BLE GATT processes
