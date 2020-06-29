@@ -289,6 +289,7 @@ extern void vPortCleanUpTCB ( void *pxTCB );
 #define configTIMER_TASK_STACK_DEPTH        CONFIG_FREERTOS_TIMER_TASK_STACK_DEPTH
 
 #define INCLUDE_xTimerPendFunctionCall      1
+#define INCLUDE_xTimerGetTimerDaemonTaskHandle 1
 #define INCLUDE_eTaskGetState               1
 #define configUSE_QUEUE_SETS                1
 
