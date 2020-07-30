@@ -30,6 +30,8 @@
 #include "sdkconfig.h"
 #include "mbedtls/config.h"
 
+#define ESP_MBED_CONFIG 1
+
 /**
  * \name SECTION: System support
  *
@@ -67,6 +69,10 @@
 #else
 #undef MBEDTLS_HAVE_TIME_DATE
 #endif
+
+
+/** Remove deprecated functions to prevent their use. */
+#define MBEDTLS_DEPRECATED_REMOVED
 
 /**
  * \def MBEDTLS_PLATFORM_MEMORY
@@ -252,6 +258,8 @@
 #undef MBEDTLS_ARC4_C
 #define MBEDTLS_REMOVE_ARC4_CIPHERSUITES
 #endif
+
+#define MBEDTLS_REMOVE_3DES_CIPHERSUITES
 
 /**
  * \def MBEDTLS_ECP_RESTARTABLE
@@ -2328,6 +2336,10 @@
 #elif defined(MBEDTLS_USER_CONFIG_FILE)
 #include MBEDTLS_USER_CONFIG_FILE
 #endif
+
+/* Use platform mutexes in mbed TLS. */
+#define MBEDTLS_THREADING_C
+#define MBEDTLS_THREADING_ALT
 
 #include "mbedtls/check_config.h"
 
