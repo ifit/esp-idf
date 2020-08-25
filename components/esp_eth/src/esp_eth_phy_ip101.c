@@ -128,19 +128,14 @@ static esp_err_t ip101_update_link_duplex_speed(phy_ip101_t *ip101)
     eth_speed_t speed = ETH_SPEED_10M;
     eth_duplex_t duplex = ETH_DUPLEX_HALF;
     cssr_reg_t cssr;
-    bmsr_reg_t bmsr;
     PHY_CHECK(ip101_page_select(ip101, 16) == ESP_OK, "select page 16 failed", err);
-    PHY_CHECK(eth->phy_reg_read(eth, ip101->addr, ETH_PHY_BMSR_REG_ADDR, &(bmsr.val)) == ESP_OK,
-              "read BMSR failed", err);
-    PHY_CHECK(eth->phy_reg_read(eth, ip101->addr, ETH_PHY_BMSR_REG_ADDR, &(bmsr.val)) == ESP_OK,
-              "read BMSR failed", err);
-    eth_link_t link = bmsr.link_status ? ETH_LINK_UP : ETH_LINK_DOWN;
+    PHY_CHECK(eth->phy_reg_read(eth, ip101->addr, ETH_PHY_CSSR_REG_ADDR, &(cssr.val)) == ESP_OK,
+              "read CSSR failed", err);
+    eth_link_t link = cssr.link_up ? ETH_LINK_UP : ETH_LINK_DOWN;
     /* check if link status changed */
     if (ip101->link_status != link) {
         /* when link up, read negotiation result */
         if (link == ETH_LINK_UP) {
-            PHY_CHECK(eth->phy_reg_read(eth, ip101->addr, ETH_PHY_CSSR_REG_ADDR, &(cssr.val)) == ESP_OK,
-                      "read CSSR failed", err);
             switch (cssr.op_mode) {
             case 1: //10M Half
                 speed = ETH_SPEED_10M;
@@ -226,6 +221,7 @@ static esp_err_t ip101_reset_hw(esp_eth_phy_t *phy)
         gpio_pad_select_gpio(ip101->reset_gpio_num);
         gpio_set_direction(ip101->reset_gpio_num, GPIO_MODE_OUTPUT);
         gpio_set_level(ip101->reset_gpio_num, 0);
+        ets_delay_us(100); // insert min input assert time
         gpio_set_level(ip101->reset_gpio_num, 1);
     }
     return ESP_OK;

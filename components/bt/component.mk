@@ -138,6 +138,7 @@ endif
 
 ifdef CONFIG_BLE_MESH
 COMPONENT_ADD_INCLUDEDIRS += esp_ble_mesh/mesh_common/include           \
+                             esp_ble_mesh/mesh_common/tinycrypt/include \
                              esp_ble_mesh/mesh_core                     \
                              esp_ble_mesh/mesh_core/include             \
                              esp_ble_mesh/mesh_core/storage             \
@@ -150,6 +151,7 @@ COMPONENT_ADD_INCLUDEDIRS += esp_ble_mesh/mesh_common/include           \
                              esp_ble_mesh/api
 
 COMPONENT_SRCDIRS += esp_ble_mesh/mesh_common               \
+                     esp_ble_mesh/mesh_common/tinycrypt/src \
                      esp_ble_mesh/mesh_core                 \
                      esp_ble_mesh/mesh_core/storage         \
                      esp_ble_mesh/btc                       \
@@ -196,7 +198,8 @@ COMPONENT_SRCDIRS += host/nimble/nimble/nimble/host/src                         
                      host/nimble/nimble/nimble/host/util/src                       \
                      host/nimble/nimble/nimble/host/store/ram/src                  \
                      host/nimble/nimble/nimble/host/store/config/src               \
-                     host/nimble/esp-hci/src
+                     host/nimble/esp-hci/src                                       \
+                     host/nimble/port/src
 
 ifndef CONFIG_BT_NIMBLE_CRYPTO_STACK_MBEDTLS
 COMPONENT_SRCDIRS += host/nimble/nimble/ext/tinycrypt/src

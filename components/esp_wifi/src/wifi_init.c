@@ -37,6 +37,13 @@ static esp_pm_lock_handle_t s_wifi_modem_sleep_lock;
 /* Callback function to update WiFi MAC time */
 wifi_mac_time_update_cb_t s_wifi_mac_time_update_cb = NULL;
 
+/* Set additional WiFi features and capabilities */
+uint64_t g_wifi_feature_caps =
+#if CONFIG_ESP32_WIFI_ENABLE_WPA3_SAE
+    CONFIG_FEATURE_WPA3_SAE_BIT |
+#endif
+0;
+
 static const char* TAG = "wifi_init";
 
 static void __attribute__((constructor)) s_set_default_wifi_log_level()
@@ -104,6 +111,7 @@ esp_err_t esp_wifi_deinit(void)
     err = esp_wifi_deinit_internal();
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to deinit Wi-Fi driver (0x%x)", err);
+        return err;
     }
 
     tcpip_adapter_clear_default_wifi_handlers();

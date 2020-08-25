@@ -1255,7 +1255,7 @@ static void _mdns_create_answer_from_parsed_packet(mdns_parsed_packet_t * parsed
                 }
             } else if (q->type == MDNS_TYPE_SDPTR) {
                 shared = true;
-                if (!_mdns_alloc_answer(&packet->answers, MDNS_TYPE_PTR, service->service, false, false)) {
+                if (!_mdns_alloc_answer(&packet->answers, MDNS_TYPE_SDPTR, service->service, false, false)) {
                     _mdns_free_tx_packet(packet);
                     return;
                 }
@@ -4249,6 +4249,11 @@ void mdns_free()
     if (!_mdns_server) {
         return;
     }
+
+    esp_event_handler_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler);
+    esp_event_handler_unregister(IP_EVENT, ESP_EVENT_ANY_ID, &event_handler);
+    esp_event_handler_unregister(ETH_EVENT, ESP_EVENT_ANY_ID, &event_handler);
+
     mdns_service_remove_all(_mdns_server);
     _mdns_service_task_stop();
     for (i=0; i<TCPIP_ADAPTER_IF_MAX; i++) {
@@ -4279,9 +4284,6 @@ void mdns_free()
         free(h);
     }
     vSemaphoreDelete(_mdns_server->lock);
-    esp_event_handler_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler);
-    esp_event_handler_unregister(IP_EVENT, ESP_EVENT_ANY_ID, &event_handler);
-    esp_event_handler_unregister(ETH_EVENT, ESP_EVENT_ANY_ID, &event_handler);
     free(_mdns_server);
     _mdns_server = NULL;
 }

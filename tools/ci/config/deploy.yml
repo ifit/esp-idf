@@ -4,6 +4,7 @@
   image: $CI_DOCKER_REGISTRY/esp32-ci-env
   tags:
     - deploy
+    - shiny
   script:
     - mkdir -p ~/.ssh
     - chmod 700 ~/.ssh
@@ -52,9 +53,12 @@ push_to_github:
   tags:
     - deploy
   only:
-    - master
-    - /^release\/v/
-    - /^v\d+\.\d+(\.\d+)?($|-)/
+    refs:
+      - master
+      - /^release\/v/
+      - /^v\d+\.\d+(\.\d+)?($|-)/
+    variables:
+      - $BOT_TRIGGER_WITH_LABEL == null
   when: on_success
   dependencies: []
   extends: .before_script_lesser
@@ -74,6 +78,7 @@ deploy_docs:
   image: $CI_DOCKER_REGISTRY/esp32-ci-env$BOT_DOCKER_IMAGE_TAG
   tags:
     - deploy
+    - shiny
   only:
     refs:
       - master
@@ -145,7 +150,7 @@ deploy_test_result:
     # artifacts of job update_test_cases creates test-management folder
     # we need to remove it so we can clone test-management folder again
     - rm -r test-management
-    - git clone $TEST_MANAGEMENT_REPO
+    - ./tools/ci/retry_failed.sh git clone $TEST_MANAGEMENT_REPO
     - python3 $CHECKOUT_REF_SCRIPT test-management test-management
     - cd test-management
     - echo $BOT_JIRA_ACCOUNT > ${BOT_ACCOUNT_CONFIG_FILE}

@@ -885,6 +885,17 @@ static void uart_rx_intr_handler_default(void *param)
                 || (uart_intr_status & UART_AT_CMD_CHAR_DET_INT_ST_M)
                 ) {
             rx_fifo_len = uart_reg->status.rxfifo_cnt;
+            typeof(uart_reg->mem_rx_status) rx_status = uart_reg->mem_rx_status;
+            
+            // When using DPort to read fifo, fifo_cnt is not credible, we need to calculate the real cnt based on the fifo read and write pointer. 
+            // When using AHB to read FIFO, we can use fifo_cnt to indicate the data length in fifo.
+            if (rx_status.wr_addr > rx_status.rd_addr) {
+                rx_fifo_len = rx_status.wr_addr - rx_status.rd_addr;
+            } else if (rx_status.wr_addr < rx_status.rd_addr) {
+                rx_fifo_len = (rx_status.wr_addr + 128) - rx_status.rd_addr;
+            } else {
+                rx_fifo_len = rx_fifo_len > 0 ? 128 : 0;
+            }
             if(pat_flg == 1) {
                 uart_intr_status |= UART_AT_CMD_CHAR_DET_INT_ST_M;
                 pat_flg = 0;
@@ -1483,6 +1494,11 @@ esp_err_t uart_driver_delete(uart_port_t uart_num)
        periph_module_disable(periph_module);
     }
     return ESP_OK;
+}
+
+bool uart_is_driver_installed(uart_port_t uart_num)
+{
+    return uart_num < UART_NUM_MAX && (p_uart_obj[uart_num] != NULL);
 }
 
 void uart_set_select_notif_callback(uart_port_t uart_num, uart_select_notif_callback_t uart_select_notif_callback)

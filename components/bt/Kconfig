@@ -77,6 +77,33 @@ menu "Bluetooth"
             default 1 if BTDM_CTRL_BR_EDR_SCO_DATA_PATH_PCM
             default 0
 
+        config BTDM_CTRL_AUTO_LATENCY
+            bool "Auto latency"
+            depends on BTDM_CTRL_MODE_BTDM
+            default n
+            help
+                BLE auto latency, used to enhance classic BT performance
+                while classic BT and BLE are enabled at the same time.
+
+        config BTDM_CTRL_AUTO_LATENCY_EFF
+            bool
+            default BTDM_CTRL_AUTO_LATENCY if BTDM_CTRL_MODE_BTDM
+            default n
+
+        config BTDM_CTRL_LEGACY_AUTH_VENDOR_EVT
+            bool "Legacy Authentication Vendor Specific Event Enable"
+            depends on BTDM_CTRL_MODE_BR_EDR_ONLY || BTDM_CTRL_MODE_BTDM
+            default y
+            help
+                To protect from BIAS attack during Legacy authentication,
+                Legacy authentication Vendor specific event should be enabled
+
+        config BTDM_CTRL_LEGACY_AUTH_VENDOR_EVT_EFF
+            bool
+            default BTDM_CTRL_LEGACY_AUTH_VENDOR_EVT if BTDM_CTRL_MODE_BR_EDR_ONLY || BTDM_CTRL_MODE_BTDM
+            default 0
+
+
         config BTDM_CTRL_BLE_MAX_CONN_EFF
             int
             default BTDM_CTRL_BLE_MAX_CONN if BTDM_CTRL_MODE_BLE_ONLY || BTDM_CTRL_MODE_BTDM
@@ -318,8 +345,8 @@ menu "Bluetooth"
 
         config BTDM_CTRL_FULL_SCAN_SUPPORTED
             bool "BLE full scan feature supported"
-            depends on BTDM_CTRL_MODE_BLE_ONLY
-            default n
+            depends on BTDM_CTRL_MODE_BLE_ONLY || BTDM_CTRL_MODE_BTDM
+            default y
             help
                 The full scan function is mainly used to provide BLE scan performance.
                 This is required for scenes with high scan performance requirements, such as BLE Mesh scenes.
