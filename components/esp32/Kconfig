@@ -1,5 +1,10 @@
 menu "ESP32-specific"
 
+    config ESP32_ECO3_CACHE_LOCK_FIX
+        bool
+        default y
+        depends on !FREERTOS_UNICORE && ESP32_SPIRAM_SUPPORT
+
     choice ESP32_REV_MIN
         prompt "Minimum Supported ESP32 Revision"
         default ESP32_REV_MIN_0
@@ -15,6 +20,7 @@ menu "ESP32-specific"
             bool "Rev 2"
         config ESP32_REV_MIN_3
             bool "Rev 3"
+            select ESP_INT_WDT if ESP32_ECO3_CACHE_LOCK_FIX
     endchoice
 
     config ESP32_REV_MIN
@@ -161,6 +167,40 @@ menu "ESP32-specific"
                 compiled with the workaround and located in flash instead.
 
                 The workaround is not required for ESP32 revision 3 and above.
+
+        menu "SPIRAM cache workaround debugging"
+
+            choice SPIRAM_CACHE_WORKAROUND_STRATEGY
+                prompt "Workaround strategy"
+                depends on SPIRAM_CACHE_WORKAROUND
+                default SPIRAM_CACHE_WORKAROUND_STRATEGY_MEMW
+                help
+                    Select the workaround strategy. Note that the strategy for precompiled
+                    libraries (libgcc, newlib, bt, wifi) is not affected by this selection.
+
+                    Unless you know you need a different strategy, it's suggested you stay
+                    with the default MEMW strategy. Note that DUPLDST can interfere with hardware
+                    encryption and this will be automatically disabled if this workaround is selected.
+                    'Insert nops' is the workaround that was used in older esp-idf versions. This workaround
+                    still can cause faulty data transfers from/to SPI RAM in some situation.
+
+                config SPIRAM_CACHE_WORKAROUND_STRATEGY_MEMW
+                    bool "Insert memw after vulnerable instructions (default)"
+
+                config SPIRAM_CACHE_WORKAROUND_STRATEGY_DUPLDST
+                    bool "Duplicate LD/ST for 32-bit, memw for 8/16 bit"
+
+                config SPIRAM_CACHE_WORKAROUND_STRATEGY_NOPS
+                    bool "Insert nops between vulnerable loads/stores (old strategy, obsolete)"
+            endchoice
+
+            #This needs to be Y only for the dupldst workaround
+            config SPIRAM_WORKAROUND_NEED_VOLATILE_SPINLOCK
+                bool
+                default "y" if SPIRAM_CACHE_WORKAROUND_STRATEGY_DUPLDST
+
+
+        endmenu
 
         config SPIRAM_BANKSWITCH_ENABLE
             bool "Enable bank switching for >4MiB external RAM"
@@ -658,6 +698,15 @@ menu "ESP32-specific"
             - 32768 Hz if the 32k crystal oscillator is used. For this use value 3000 or more.
               In case more value will help improve the definition of the launch of the crystal.
               If the crystal could not start, it will be switched to internal RC.
+
+    config ESP32_RTC_XTAL_CAL_RETRY
+        int "Number of attempts to repeat 32k XTAL calibration"
+        default 1
+        help
+            Number of attempts to repeat 32k XTAL calibration
+            before giving up and switching to the internal RC.
+            Increase this option if the 32k crystal oscillator
+            does not start and switches to internal RC.
 
     config ESP32_RTC_XTAL_BOOTSTRAP_CYCLES
         int "Bootstrap cycles for external 32kHz crystal"

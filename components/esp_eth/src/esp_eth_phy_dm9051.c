@@ -94,6 +94,11 @@ static esp_err_t dm9051_update_link_duplex_speed(phy_dm9051_t *dm9051)
     eth_duplex_t duplex = ETH_DUPLEX_HALF;
     bmsr_reg_t bmsr;
     dscsr_reg_t dscsr;
+    // BMSR is a latch low register
+    // after power up, the first latched value must be 0, which means down
+    // to speed up power up link speed, double read this register as a workaround
+    PHY_CHECK(eth->phy_reg_read(eth, dm9051->addr, ETH_PHY_BMSR_REG_ADDR, &(bmsr.val)) == ESP_OK,
+              "read BMSR failed", err);
     PHY_CHECK(eth->phy_reg_read(eth, dm9051->addr, ETH_PHY_BMSR_REG_ADDR, &(bmsr.val)) == ESP_OK,
               "read BMSR failed", err);
     eth_link_t link = bmsr.link_status ? ETH_LINK_UP : ETH_LINK_DOWN;
@@ -187,6 +192,7 @@ static esp_err_t dm9051_reset_hw(esp_eth_phy_t *phy)
         gpio_pad_select_gpio(dm9051->reset_gpio_num);
         gpio_set_direction(dm9051->reset_gpio_num, GPIO_MODE_OUTPUT);
         gpio_set_level(dm9051->reset_gpio_num, 0);
+        ets_delay_us(100); // insert min input assert time
         gpio_set_level(dm9051->reset_gpio_num, 1);
     }
     return ESP_OK;

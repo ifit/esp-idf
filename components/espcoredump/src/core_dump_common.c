@@ -51,14 +51,13 @@ static esp_err_t esp_core_dump_write_binary(void *frame, core_dump_write_config_
         if (!task_is_valid) {
             write_cfg->bad_tasks_num++;
             continue;
-        } else {
-            data_len += (tcb_sz_padded + sizeof(core_dump_task_header_t));
         }
         uint32_t len = 0;
         task_is_valid = esp_core_dump_process_stack(&tasks[i], &len);
         if (task_is_valid) {
             // Increase core dump size by task stack size
             data_len += len;
+            data_len += (tcb_sz_padded + sizeof(core_dump_task_header_t));
         } else {
             // If task tcb is ok but stack is corrupted
             write_cfg->bad_tasks_num++;
@@ -192,7 +191,15 @@ esp_err_t esp_core_dump_image_get(size_t* out_addr, size_t *out_size)
     uint32_t *dw = (uint32_t *)core_data;
     *out_size = *dw;
     spi_flash_munmap(core_data_handle);
-
+    
+    if (*out_size == 0xFFFFFFFF) {
+        ESP_LOGD(TAG, "Blank core dump partition!");
+        return ESP_ERR_INVALID_SIZE;
+    } else if ((*out_size < sizeof(uint32_t)) || (*out_size > core_part->size)) {
+        ESP_LOGE(TAG, "Incorrect size of core dump image: %d", *out_size);
+        return ESP_ERR_INVALID_SIZE;
+    }
+    
     // remap full core dump with CRC
     err = esp_partition_mmap(core_part, 0, *out_size,
                              SPI_FLASH_MMAP_DATA, &core_data, &core_data_handle);

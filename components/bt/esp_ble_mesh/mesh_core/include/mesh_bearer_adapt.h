@@ -6,35 +6,28 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#ifndef _BLE_MESH_BEARER_ADRPT_H_
-#define _BLE_MESH_BEARER_ADRPT_H_
+#ifndef _BLE_MESH_BEARER_ADAPT_H_
+#define _BLE_MESH_BEARER_ADAPT_H_
 
 #include <sys/types.h>
+#include "sdkconfig.h"
 #include "mesh_types.h"
 #include "mesh_util.h"
 #include "mesh_uuid.h"
 #include "mesh_buf.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* BLE Mesh Max Connection Count */
 #ifdef CONFIG_BT_BLUEDROID_ENABLED
-#define BLE_MESH_MAX_CONN   \
-    MIN(CONFIG_BT_ACL_CONNECTIONS, CONFIG_BTDM_CONTROLLER_BLE_MAX_CONN)
-
-#define BLE_MESH_ADV_TASK_CORE  TASK_PINNED_TO_CORE
+#define BLE_MESH_MAX_CONN   MIN(CONFIG_BT_ACL_CONNECTIONS, CONFIG_BTDM_CTRL_BLE_MAX_CONN)
 #endif
 
 #ifdef CONFIG_BT_NIMBLE_ENABLED
 #define BLE_MESH_MAX_CONN   CONFIG_BT_NIMBLE_MAX_CONNECTIONS
-
-#ifdef CONFIG_BT_NIMBLE_PINNED_TO_CORE
-#define BLE_MESH_ADV_TASK_CORE  (CONFIG_BT_NIMBLE_PINNED_TO_CORE < portNUM_PROCESSORS ? CONFIG_BT_NIMBLE_PINNED_TO_CORE : tskNO_AFFINITY)
-#else
-#define BLE_MESH_ADV_TASK_CORE  (0)
 #endif
-
-#endif
-
-#define BLE_MESH_ADV_TASK_STACK_SIZE    3072
 
 #define BLE_MESH_GAP_ADV_MAX_LEN    31
 
@@ -634,7 +627,7 @@ struct bt_mesh_gatt_attr {
     .uuid = BLE_MESH_UUID_GATT_CHRC,                            \
     .perm = BLE_MESH_GATT_PERM_READ,                            \
     .read = bt_mesh_gatts_attr_read_chrc,                       \
-    .user_data = (&(struct bt_mesh_gatt_char) { .uuid = _uuid, \
+    .user_data = (&(struct bt_mesh_gatt_char) { .uuid = _uuid,  \
                            .properties = _props, }),            \
 }
 
@@ -672,7 +665,6 @@ struct bt_mesh_gatt_attr {
 }
 
 int bt_mesh_host_init(void);
-int bt_mesh_host_deinit(void);
 
 int bt_le_adv_start(const struct bt_mesh_adv_param *param,
                     const struct bt_mesh_adv_data *ad, size_t ad_len,
@@ -717,10 +709,11 @@ int bt_mesh_gatts_service_deregister(struct bt_mesh_gatt_service *svc);
 int bt_mesh_gatts_service_unregister(struct bt_mesh_gatt_service *svc);
 
 ssize_t bt_mesh_gatts_attr_read_included(struct bt_mesh_conn *conn,
-        const struct bt_mesh_gatt_attr *attr,
-        void *buf, u16_t len, u16_t offset);
+                                         const struct bt_mesh_gatt_attr *attr,
+                                         void *buf, u16_t len, u16_t offset);
 
-ssize_t bt_mesh_gatts_attr_read(struct bt_mesh_conn *conn, const struct bt_mesh_gatt_attr *attr,
+ssize_t bt_mesh_gatts_attr_read(struct bt_mesh_conn *conn,
+                                const struct bt_mesh_gatt_attr *attr,
                                 void *buf, u16_t buf_len, u16_t offset,
                                 const void *value, u16_t value_len);
 
@@ -729,10 +722,11 @@ ssize_t bt_mesh_gatts_attr_read_service(struct bt_mesh_conn *conn,
                                         void *buf, u16_t len, u16_t offset);
 
 ssize_t bt_mesh_gatts_attr_read_chrc(struct bt_mesh_conn *conn,
-                                     const struct bt_mesh_gatt_attr *attr, void *buf,
-                                     u16_t len, u16_t offset);
+                                     const struct bt_mesh_gatt_attr *attr,
+                                     void *buf, u16_t len, u16_t offset);
 
-int bt_mesh_gatts_notify(struct bt_mesh_conn *conn, const struct bt_mesh_gatt_attr *attr,
+int bt_mesh_gatts_notify(struct bt_mesh_conn *conn,
+                         const struct bt_mesh_gatt_attr *attr,
                          const void *data, u16_t len);
 
 u16_t bt_mesh_gatt_get_mtu(struct bt_mesh_conn *conn);
@@ -758,7 +752,8 @@ void bt_mesh_gattc_exchange_mtu(u8_t index);
 
 u16_t bt_mesh_gattc_get_mtu_info(struct bt_mesh_conn *conn);
 
-int bt_mesh_gattc_write_no_rsp(struct bt_mesh_conn *conn, const struct bt_mesh_gatt_attr *attr,
+int bt_mesh_gattc_write_no_rsp(struct bt_mesh_conn *conn,
+                               const struct bt_mesh_gatt_attr *attr,
                                const void *data, u16_t len);
 
 void bt_mesh_gattc_disconnect(struct bt_mesh_conn *conn);
@@ -813,5 +808,9 @@ enum {
 
 int bt_mesh_update_exceptional_list(u8_t sub_code, u8_t type, void *info);
 
-#endif /* _BLE_MESH_BEARER_ADRPT_H_ */
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* _BLE_MESH_BEARER_ADAPT_H_ */
 

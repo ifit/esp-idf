@@ -111,10 +111,12 @@ Double-click the ``Path`` variable (either User or System Path, depending if you
 Next Steps
 ==========
 
-To carry on with development environment setup, proceed to :ref:`get-started-get-esp-idf`.
+To carry on with development environment setup, proceed to :ref:`get-started-set-up-tools`.
 
 .. _ninja: https://ninja-build.org/
 .. _Python: https://www.python.org/downloads/windows/
 .. _MSYS2: https://msys2.github.io/
+.. Note: These two targets may be used from git-clone-notes.inc depending on version, don't remove
 .. _Stable version: https://docs.espressif.com/projects/esp-idf/en/stable/
+.. _Releases page: https://github.com/espressif/esp-idf/releases
 

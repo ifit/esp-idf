@@ -21,6 +21,10 @@
 
 #include "client_common.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Generic client model common structure */
 typedef bt_mesh_client_user_data_t      bt_mesh_generic_client_t;
 typedef bt_mesh_client_internal_data_t  generic_internal_data_t;
@@ -549,21 +553,23 @@ int bt_mesh_gen_property_cli_deinit(struct bt_mesh_model *model, bool primary);
  *
  * @param[in]  common: Message common information structure
  * @param[in]  get:    Pointer of generic get message value
- * @param[out] status: Pointer of generic status message value
  *
  * @return Zero-success, other-fail
  */
-int bt_mesh_generic_client_get_state(bt_mesh_client_common_param_t *common, void *get, void *status);
+int bt_mesh_generic_client_get_state(bt_mesh_client_common_param_t *common, void *get);
 
 /**
  * @brief This function is called to set generic states.
  *
  * @param[in]  common: Message common information structure
  * @param[in]  set:    Pointer of generic set message value
- * @param[out] status: Pointer of generic status message value
  *
  * @return Zero-success, other-fail
  */
-int bt_mesh_generic_client_set_state(bt_mesh_client_common_param_t *common, void *set, void *status);
+int bt_mesh_generic_client_set_state(bt_mesh_client_common_param_t *common, void *set);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _GENERIC_CLIENT_H_ */

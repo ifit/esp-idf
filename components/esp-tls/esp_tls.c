@@ -131,6 +131,7 @@ static esp_err_t esp_tcp_connect(const char *host, int hostlen, int port, int *s
             struct timeval tv;
             ms_to_timeval(cfg->timeout_ms, &tv);
             setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+            setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
         }
         if (cfg->non_block) {
             int flags = fcntl(fd, F_GETFL, 0);
@@ -336,6 +337,10 @@ static esp_err_t set_server_config(esp_tls_cfg_server_t *cfg, esp_tls_t *tls)
         ESP_INT_EVENT_TRACKER_CAPTURE(tls->error_handle, ERR_TYPE_MBEDTLS, -ret);
         return ESP_ERR_MBEDTLS_SSL_CONFIG_DEFAULTS_FAILED;
     }
+
+#ifdef CONFIG_MBEDTLS_SSL_RENEGOTIATION
+    mbedtls_ssl_conf_renegotiation(&tls->conf, MBEDTLS_SSL_RENEGOTIATION_ENABLED);
+#endif
 
 #ifdef CONFIG_MBEDTLS_SSL_ALPN
     if (cfg->alpn_protos) {
