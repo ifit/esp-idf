@@ -394,6 +394,32 @@ function run_tests()
     grep -q '"command"' build/compile_commands.json || failure "compile_commands.json missing or has no no 'commands' in it"
     (grep '"command"' build/compile_commands.json | grep -v mfix-esp32-psram-cache-issue) && failure "All commands in compile_commands.json should use PSRAM cache workaround"
     rm -r build
+    #Test for various strategies
+    for strat in MEMW NOPS DUPLDST; do
+        rm -r build sdkconfig.defaults sdkconfig sdkconfig.defaults.esp32
+        stratlc=`echo $strat | tr A-Z a-z`
+        mkdir build && touch build/sdkconfig
+        echo "CONFIG_ESP32_SPIRAM_SUPPORT=y" > sdkconfig.defaults
+        echo "CONFIG_SPIRAM_CACHE_WORKAROUND_STRATEGY_$strat=y"  >> sdkconfig.defaults
+        echo "CONFIG_SPIRAM_CACHE_WORKAROUND=y" >> sdkconfig.defaults
+        # note: we do 'reconfigure' here, as we just need to run cmake
+        idf.py reconfigure
+        grep -q '"command"' build/compile_commands.json || failure "compile_commands.json missing or has no no 'commands' in it"
+        (grep '"command"' build/compile_commands.json | grep -v mfix-esp32-psram-cache-strategy=$stratlc) && failure "All commands in compile_commands.json should use PSRAM cache workaround strategy $strat when selected"
+        echo ${PWD}
+        rm -r sdkconfig.defaults build
+    done
+
+    print_status "Cleaning Python bytecode"
+    idf.py clean > /dev/null
+    idf.py fullclean > /dev/null
+    if [ "$(find $IDF_PATH -name "*.py[co]" | wc -l)" -eq 0 ]; then
+        failure "No Python bytecode in IDF!"
+    fi
+    idf.py python-clean
+    if [ "$(find $IDF_PATH -name "*.py[co]" | wc -l)" -gt 0 ]; then
+        failure "Python bytecode isn't working!"
+    fi
 
     print_status "Displays partition table when executing target partition_table"
     idf.py partition_table | grep -E "# Espressif .+ Partition Table"
@@ -565,6 +591,19 @@ endmenu\n" >> ${IDF_PATH}/Kconfig;
     diff <(idf.py reconfigure | grep "Project version") <(cd ../esp-idf-template-test && idf.py reconfigure | grep "Project version") \
         || failure "Version on worktree should have been properly resolved"
     git worktree remove ../esp-idf-template-test
+
+    print_status "Defaults set properly for unspecified idf_build_process args"
+    pushd $IDF_PATH/examples/build_system/cmake/idf_as_lib
+    cp CMakeLists.txt CMakeLists.txt.bak
+    echo -e "\nidf_build_get_property(project_dir PROJECT_DIR)" >> CMakeLists.txt
+    echo -e "\nmessage(\"Project directory: \${project_dir}\")" >> CMakeLists.txt
+    mkdir build && cd build
+    cmake .. -DCMAKE_TOOLCHAIN_FILE=$IDF_PATH/tools/cmake/toolchain-esp32.cmake -DTARGET=esp32 &> log.txt
+    grep "Project directory: $IDF_PATH/examples/build_system/cmake/idf_as_lib" log.txt || failure "PROJECT_DIR default was not set"
+    cd ..
+    mv CMakeLists.txt.bak CMakeLists.txt
+    rm -rf build
+    popd
 
     print_status "All tests completed"
     if [ -n "${FAILURES}" ]; then
