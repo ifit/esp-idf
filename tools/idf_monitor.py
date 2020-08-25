@@ -225,6 +225,7 @@ class SerialReader(StoppableThread):
             self.serial.rts = True  # Force an RTS reset on open
             self.serial.open()
             self.serial.rts = False
+            self.serial.dtr = self.serial.dtr   # usbser.sys workaround
         try:
             while self.alive:
                 data = self.serial.read(self.serial.in_waiting or 1)
@@ -311,7 +312,8 @@ class Monitor(object):
 
     Main difference is that all event processing happens in the main thread, not the worker threads.
     """
-    def __init__(self, serial_instance, elf_file, print_filter, make="make", toolchain_prefix=DEFAULT_TOOLCHAIN_PREFIX, eol="CRLF"):
+    def __init__(self, serial_instance, elf_file, print_filter, make="make", encrypted=False,
+                 toolchain_prefix=DEFAULT_TOOLCHAIN_PREFIX, eol="CRLF"):
         super(Monitor, self).__init__()
         self.event_queue = queue.Queue()
         self.console = miniterm.Console()
@@ -339,6 +341,7 @@ class Monitor(object):
             self.make = shlex.split(make)  # allow for possibility the "make" arg is a list of arguments (for idf.py)
         else:
             self.make = make
+        self.encrypted = encrypted
         self.toolchain_prefix = toolchain_prefix
         self.menu_key = CTRL_T
         self.exit_key = CTRL_RBRACKET
@@ -473,15 +476,17 @@ class Monitor(object):
             red_print(self.get_help_text())
         elif c == CTRL_R:  # Reset device via RTS
             self.serial.setRTS(True)
+            self.serial.setDTR(self.serial.dtr)  # usbser.sys workaround
             time.sleep(0.2)
             self.serial.setRTS(False)
+            self.serial.setDTR(self.serial.dtr)  # usbser.sys workaround
             self.output_enable(True)
         elif c == CTRL_F:  # Recompile & upload
-            self.run_make("flash")
+            self.run_make("encrypted-flash" if self.encrypted else "flash")
         elif c in [CTRL_A, 'a', 'A']:  # Recompile & upload app only
             # "CTRL-A" cannot be captured with the default settings of the Windows command line, therefore, "A" can be used
             # instead
-            self.run_make("app-flash")
+            self.run_make("encrypted-app-flash" if self.encrypted else "app-flash")
         elif c == CTRL_Y:  # Toggle output display
             self.output_toggle()
         elif c == CTRL_L:  # Toggle saving output into file
@@ -491,9 +496,11 @@ class Monitor(object):
             # to fast trigger pause without press menu key
             self.serial.setDTR(False)  # IO0=HIGH
             self.serial.setRTS(True)   # EN=LOW, chip in reset
+            self.serial.setDTR(self.serial.dtr)  # usbser.sys workaround
             time.sleep(1.3)  # timeouts taken from esptool.py, includes esp32r0 workaround. defaults: 0.1
             self.serial.setDTR(True)   # IO0=LOW
             self.serial.setRTS(False)  # EN=HIGH, chip out of reset
+            self.serial.setDTR(self.serial.dtr)  # usbser.sys workaround
             time.sleep(0.45)  # timeouts taken from esptool.py, includes esp32r0 workaround. defaults: 0.05
             self.serial.setDTR(False)  # IO0=HIGH, done
         elif c in [CTRL_X, 'x', 'X']:  # Exiting from within the menu
@@ -696,12 +703,17 @@ def main():
         '--baud', '-b',
         help='Serial port baud rate',
         type=int,
-        default=os.environ.get('MONITOR_BAUD', 115200))
+        default=os.getenv('IDF_MONITOR_BAUD', os.getenv('MONITORBAUD', 115200)))
 
     parser.add_argument(
         '--make', '-m',
         help='Command to run make',
         type=str, default='make')
+
+    parser.add_argument(
+        '--encrypted',
+        help='Use encrypted targets while running make',
+        action='store_true')
 
     parser.add_argument(
         '--toolchain-prefix',
@@ -749,7 +761,8 @@ def main():
     except KeyError:
         pass  # not running a make jobserver
 
-    monitor = Monitor(serial_instance, args.elf_file.name, args.print_filter, args.make, args.toolchain_prefix, args.eol)
+    monitor = Monitor(serial_instance, args.elf_file.name, args.print_filter, args.make, args.encrypted,
+                      args.toolchain_prefix, args.eol)
 
     yellow_print('--- idf_monitor on {p.name} {p.baudrate} ---'.format(
         p=serial_instance))

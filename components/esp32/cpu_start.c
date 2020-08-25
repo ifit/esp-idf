@@ -47,7 +47,6 @@
 #include "nvs_flash.h"
 #include "esp_event.h"
 #include "esp_spi_flash.h"
-#include "esp_ipc.h"
 #include "esp_private/crosscore_int.h"
 #include "esp_log.h"
 #include "esp_vfs_dev.h"
@@ -205,10 +204,6 @@ void IRAM_ATTR call_start_cpu0()
     }
     ESP_EARLY_LOGI(TAG, "Starting app cpu, entry point is %p", call_start_cpu1);
 
-#ifdef CONFIG_SECURE_FLASH_ENC_ENABLED
-    esp_flash_encryption_init_checks();
-#endif
-
     //Flush and enable icache for APP CPU
     Cache_Flush(1);
     Cache_Read_Enable(1);
@@ -350,9 +345,6 @@ void start_cpu0_default(void)
 #if CONFIG_ESP32_BROWNOUT_DET
     esp_brownout_init();
 #endif
-#if CONFIG_ESP32_DISABLE_BASIC_ROM_CONSOLE
-    esp_efuse_disable_basic_rom_console();
-#endif
     rtc_gpio_force_hold_dis_all();
     esp_vfs_dev_uart_register();
     esp_reent_init(_GLOBAL_REENT);
@@ -365,6 +357,14 @@ void start_cpu0_default(void)
     _GLOBAL_REENT->_stdin  = (FILE*) &__sf_fake_stdin;
     _GLOBAL_REENT->_stdout = (FILE*) &__sf_fake_stdout;
     _GLOBAL_REENT->_stderr = (FILE*) &__sf_fake_stderr;
+#endif
+    // After setting _GLOBAL_REENT, ESP_LOGIx can be used instead of ESP_EARLY_LOGx.
+
+#ifdef CONFIG_SECURE_FLASH_ENC_ENABLED
+    esp_flash_encryption_init_checks();
+#endif
+#if CONFIG_ESP32_DISABLE_BASIC_ROM_CONSOLE
+    esp_efuse_disable_basic_rom_console();
 #endif
     esp_timer_init();
     esp_set_time_from_rtc();
@@ -386,6 +386,10 @@ void start_cpu0_default(void)
     esp_int_wdt_init();
     //Initialize the interrupt watch dog for CPU0.
     esp_int_wdt_cpu_init();
+#else
+#if CONFIG_ESP32_ECO3_CACHE_LOCK_FIX
+    assert(!soc_has_cache_lock_bug() && "ESP32 Rev 3 + Dual Core + PSRAM requires INT WDT enabled in project config!");
+#endif
 #endif
     esp_cache_err_int_init();
     esp_crosscore_int_init();

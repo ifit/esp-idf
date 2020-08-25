@@ -133,13 +133,14 @@ endif()
 #
 function(esptool_py_custom_target target_name flasher_filename dependencies)
     idf_build_get_property(idf_path IDF_PATH)
+    idf_component_get_property(esptool_py_dir esptool_py COMPONENT_DIR)
     add_custom_target(${target_name} DEPENDS ${dependencies}
         COMMAND ${CMAKE_COMMAND}
         -D IDF_PATH="${idf_path}"
         -D ESPTOOLPY="${ESPTOOLPY}"
         -D ESPTOOL_ARGS="write_flash;@flash_${flasher_filename}_args"
         -D WORKING_DIRECTORY="${build_dir}"
-        -P run_esptool.cmake
+        -P ${esptool_py_dir}/run_esptool.cmake
         WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
         USES_TERMINAL
         )
@@ -172,6 +173,11 @@ esptool_py_custom_target(app-flash app "app")
 if(CONFIG_SECURE_FLASH_ENCRYPTION_MODE_DEVELOPMENT)
     esptool_py_custom_target(encrypted-flash encrypted_project "app;partition_table;bootloader")
     esptool_py_custom_target(encrypted-app-flash encrypted_app "app")
+else()
+    fail_target(encrypted-flash "Error: The target encrypted-flash requires"
+                "CONFIG_SECURE_FLASH_ENCRYPTION_MODE_DEVELOPMENT to be enabled.")
+    fail_target(encrypted-app-flash "Error: The target encrypted-app-flash requires"
+                "CONFIG_SECURE_FLASH_ENCRYPTION_MODE_DEVELOPMENT to be enabled.")
 endif()
 
 # esptool_py_flash_project_args

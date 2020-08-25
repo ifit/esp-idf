@@ -157,18 +157,32 @@
    --------------------------------
 */
 /**
- * IP_REASSEMBLY==1: Reassemble incoming fragmented IP packets. Note that
+ * IP_REASSEMBLY==1: Reassemble incoming fragmented IP4 packets. Note that
  * this option does not affect outgoing packet sizes, which can be controlled
  * via IP_FRAG.
  */
-#define IP_REASSEMBLY                   CONFIG_LWIP_IP_REASSEMBLY
+#define IP_REASSEMBLY                   CONFIG_LWIP_IP4_REASSEMBLY
 
 /**
- * IP_FRAG==1: Fragment outgoing IP packets if their size exceeds MTU. Note
+ * LWIP_IPV6_REASS==1: reassemble incoming IP6 packets that fragmented. Note that
+ * this option does not affect outgoing packet sizes, which can be controlled
+ * via LWIP_IPV6_FRAG.
+ */
+#define LWIP_IPV6_REASS                 CONFIG_LWIP_IP6_REASSEMBLY
+
+/**
+ * IP_FRAG==1: Fragment outgoing IP4 packets if their size exceeds MTU. Note
  * that this option does not affect incoming packet sizes, which can be
  * controlled via IP_REASSEMBLY.
  */
-#define IP_FRAG                         CONFIG_LWIP_IP_FRAG
+#define IP_FRAG                         CONFIG_LWIP_IP4_FRAG
+
+/**
+ * LWIP_IPV6_FRAG==1: Fragment outgoing IP6 packets if their size exceeds MTU. Note
+ * that this option does not affect incoming packet sizes, which can be
+ * controlled via IP_REASSEMBLY.
+ */
+#define LWIP_IPV6_FRAG                  CONFIG_LWIP_IP6_FRAG
 
 /**
  * IP_REASS_MAXAGE: Maximum time (in multiples of IP_TMR_INTERVAL - so seconds, normally)
@@ -376,6 +390,12 @@
 #define TCP_RCV_SCALE                   CONFIG_LWIP_TCP_RCV_SCALE
 #endif
 
+/**
+ * LWIP_TCP_RTO_TIME: TCP rto time.
+ * Default is 3 second.
+ */
+#define LWIP_TCP_RTO_TIME             CONFIG_LWIP_TCP_RTO_TIME
+
 /*
    ----------------------------------
    ---------- Pbuf options ----------
@@ -537,6 +557,11 @@
  * in seconds. (does not require sockets.c, and will affect tcp.c)
  */
 #define LWIP_TCP_KEEPALIVE              1
+
+/**
+ * LWIP_SO_LINGER==1: Enable SO_LINGER processing.
+ */
+#define LWIP_SO_LINGER                  CONFIG_LWIP_SO_LINGER
 
 /**
  * LWIP_SO_RCVBUF==1: Enable SO_RCVBUF processing.
@@ -757,7 +782,6 @@
 #define ESP_THREAD_SAFE_DEBUG           LWIP_DBG_OFF
 #define ESP_DHCP                        1
 #define ESP_DNS                         1
-#define ESP_IPV6_AUTOCONFIG             1
 #define ESP_PERF                        0
 #define ESP_RANDOM_TCP_PORT             1
 #define ESP_IP4_ATON                    1
@@ -780,6 +804,10 @@
 #define ESP_SOCKET                      1
 #define ESP_LWIP_SELECT                 1
 #define ESP_LWIP_LOCK                   1
+
+#ifdef CONFIG_LWIP_IPV6_AUTOCONFIG
+#define ESP_IPV6_AUTOCONFIG             CONFIG_LWIP_IPV6_AUTOCONFIG
+#endif
 
 #ifdef ESP_IRAM_ATTR
 #undef ESP_IRAM_ATTR

@@ -12,11 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <string.h>
-#include <stdint.h>
-
-#include "mesh_types.h"
-
+#include "mesh_common.h"
 #include "server_common.h"
 #include "device_property.h"
 
@@ -142,7 +138,7 @@ static struct bt_mesh_dev_prop {
 u8_t bt_mesh_get_dev_prop_len(u16_t prop_id)
 {
     if (prop_id > BLE_MESH_TOTAL_LUMINOUS_ENERGY) {
-        BT_ERR("%s, Unknown Device Property ID 0x%04x", __func__, prop_id);
+        BT_ERR("Unknown Device Property ID 0x%04x", prop_id);
         return UINT8_MAX;
     }
 
