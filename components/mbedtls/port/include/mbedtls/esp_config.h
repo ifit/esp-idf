@@ -2338,8 +2338,10 @@
 #endif
 
 /* Use platform mutexes in mbed TLS. */
+#ifdef CONFIG_ICON_HAL_MBED_TLS_HELPERS
 #define MBEDTLS_THREADING_C
 #define MBEDTLS_THREADING_ALT
+#endif //CONFIG_ICON_HAL_MBED_TLS_HELPERS
 
 #include "mbedtls/check_config.h"
 
