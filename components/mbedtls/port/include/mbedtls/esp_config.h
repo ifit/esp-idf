@@ -2338,8 +2338,10 @@
 #endif
 
 /* Use platform mutexes in mbed TLS. */
+#ifdef CONFIG_AWS_SDK_ENABLED
 #define MBEDTLS_THREADING_C
 #define MBEDTLS_THREADING_ALT
+#endif //CONFIG_AWS_SDK_ENABLED
 
 #include "mbedtls/check_config.h"
 
