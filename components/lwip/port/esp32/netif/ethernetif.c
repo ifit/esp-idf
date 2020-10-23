@@ -55,6 +55,13 @@
 #define IFNAME0 'e'
 #define IFNAME1 'n'
 
+#ifdef CONFIG_ICON_MODEL_NAME
+#ifdef CONFIG_LWIP_LOCAL_HOSTNAME
+#undef CONFIG_LWIP_LOCAL_HOSTNAME
+#define CONFIG_LWIP_LOCAL_HOSTNAME "IFIT" CONFIG_ICON_MODEL_NAME
+#endif //CONFIG_LWIP_LOCAL_HOSTNAME
+#endif //CONFIG_ICON_MODEL_NAME
+
 /**
  * @brief Free resources allocated in L2 layer
  *
