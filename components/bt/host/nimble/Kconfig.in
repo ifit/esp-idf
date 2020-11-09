@@ -28,6 +28,13 @@ choice BT_NIMBLE_MEM_ALLOC_MODE
 
 endchoice
 
+config BT_HOST_BASED_PRIVACY
+    bool "Use host based privacy"
+    default y
+    depends on BT_NIMBLE_ENABLED
+    help
+        Configure whether to use host based privacy
+
 config BT_NIMBLE_MAX_CONNECTIONS
     int "Maximum number of concurrent connections"
     range 1 9
