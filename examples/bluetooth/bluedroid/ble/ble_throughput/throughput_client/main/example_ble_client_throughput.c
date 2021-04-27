@@ -504,7 +504,7 @@ static void throughput_client_task(void *param)
                 assert(res == pdTRUE);
             } else {
                 if (is_connect) {
-                    int free_buff_num = esp_ble_get_sendable_packets_num();
+                    int free_buff_num = esp_ble_get_cur_sendable_packets_num(gl_profile_tab[PROFILE_A_APP_ID].conn_id);
                     if(free_buff_num > 0) {
                         for( ; free_buff_num > 0; free_buff_num--) {
                             // the app data set to 490 just for divided into two packages to send in the low layer
@@ -526,7 +526,7 @@ static void throughput_client_task(void *param)
     }
 }
 
-void app_main()
+void app_main(void)
 {
     // Initialize NVS.
     esp_err_t ret = nvs_flash_init();

@@ -1,6 +1,4 @@
-if(NOT BOOTLOADER_BUILD)
-    message(FATAL_ERROR "This File should not be used")
-endif()
+
 # idf_build_get_property
 #
 # @brief Retrieve the value of the specified property related to ESP-IDF build.
@@ -98,7 +96,6 @@ function(__build_set_default_build_specifications)
     list(APPEND compile_options     "-ffunction-sections"
                                     "-fdata-sections"
                                     "-fstrict-volatile-bitfields"
-                                    "-nostdlib"
                                     # warning-related flags
                                     "-Wall"
                                     "-Werror=all"
@@ -155,7 +152,9 @@ function(__build_init idf_path)
     endforeach()
 
     # Set components required by all other components in the build
-    set(requires_common cxx newlib freertos heap log soc esp_rom esp_common xtensa)
+    #
+    # - lwip is here so that #include <sys/socket.h> works without any special provisions
+    set(requires_common cxx newlib freertos heap log lwip soc esp_rom esp_common esp_system xtensa)
     idf_build_set_property(__COMPONENT_REQUIRES_COMMON "${requires_common}")
 
     __build_get_idf_git_revision()
@@ -315,7 +314,7 @@ endmacro()
 #
 macro(__build_set_default var default)
     set(_var __${var})
-    if(NOT "${_var}" STREQUAL "")
+    if(NOT "${${_var}}" STREQUAL "")
         idf_build_set_property(${var} "${${_var}}")
     else()
         idf_build_set_property(${var} "${default}")
@@ -369,8 +368,8 @@ endfunction()
 #                       are processed.
 macro(idf_build_process target)
     set(options)
-    set(single_value PROJECT_DIR PROJECT_VER PROJECT_NAME BUILD_DIR SDKCONFIG SDKCONFIG_DEFAULTS)
-    set(multi_value COMPONENTS)
+    set(single_value PROJECT_DIR PROJECT_VER PROJECT_NAME BUILD_DIR SDKCONFIG)
+    set(multi_value COMPONENTS SDKCONFIG_DEFAULTS)
     cmake_parse_arguments(_ "${options}" "${single_value}" "${multi_value}" ${ARGN})
 
     idf_build_set_property(BOOTLOADER_BUILD "${BOOTLOADER_BUILD}")
@@ -443,14 +442,6 @@ macro(idf_build_process target)
     __kconfig_generate_config("${sdkconfig}" "${sdkconfig_defaults}")
     __build_import_configs()
 
-    # Temporary trick to support both gcc5 and gcc8 builds
-    if(CMAKE_C_COMPILER_VERSION VERSION_EQUAL 5.2.0)
-        set(GCC_NOT_5_2_0 0 CACHE STRING "GCC is 5.2.0 version")
-    else()
-        set(GCC_NOT_5_2_0 1 CACHE STRING "GCC is not 5.2.0 version")
-    endif()
-    idf_build_set_property(COMPILE_DEFINITIONS "-DGCC_NOT_5_2_0" APPEND)
-
     # All targets built under this scope is with the ESP-IDF build system
     set(ESP_PLATFORM 1)
     idf_build_set_property(COMPILE_DEFINITIONS "-DESP_PLATFORM" APPEND)
@@ -483,8 +474,11 @@ function(idf_build_executable elf)
     # Set the EXECUTABLE_NAME and EXECUTABLE properties since there are generator expression
     # from components that depend on it
     get_filename_component(elf_name ${elf} NAME_WE)
+    get_target_property(elf_dir ${elf} BINARY_DIR)
+
     idf_build_set_property(EXECUTABLE_NAME ${elf_name})
     idf_build_set_property(EXECUTABLE ${elf})
+    idf_build_set_property(EXECUTABLE_DIR "${elf_dir}")
 
     # Add dependency of the build target to the executable
     add_dependencies(${elf} __idf_build_target)

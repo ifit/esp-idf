@@ -42,7 +42,7 @@ enum {
 static void bt_av_hdl_stack_evt(uint16_t event, void *p_param);
 
 
-void app_main()
+void app_main(void)
 {
     /* Initialize NVS — it is used to store PHY calibration data */
     esp_err_t err = nvs_flash_init();
@@ -61,7 +61,7 @@ void app_main()
         .sample_rate = 44100,
         .bits_per_sample = 16,
         .channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,                           //2-channels
-        .communication_format = I2S_COMM_FORMAT_I2S_MSB,
+        .communication_format = I2S_COMM_FORMAT_STAND_MSB,
         .dma_buf_count = 6,
         .dma_buf_len = 60,
         .intr_alloc_flags = 0,                                                  //Default interrupt priority

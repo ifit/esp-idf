@@ -13,15 +13,15 @@
 // limitations under the License.
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdbool.h>
 #include "esp_eth_com.h"
 #include "sdkconfig.h"
 #if CONFIG_ETH_USE_SPI_ETHERNET
 #include "driver/spi_master.h"
+#endif
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 /**
@@ -74,6 +74,30 @@ struct esp_eth_mac_s {
     esp_err_t (*deinit)(esp_eth_mac_t *mac);
 
     /**
+    * @brief Start Ethernet MAC
+    *
+    * @param[in] mac: Ethernet MAC instance
+    *
+    * @return
+    *      - ESP_OK: start Ethernet MAC successfully
+    *      - ESP_FAIL: start Ethernet MAC failed because some other error occurred
+    *
+    */
+    esp_err_t (*start)(esp_eth_mac_t *mac);
+
+    /**
+    * @brief Stop Ethernet MAC
+    *
+    * @param[in] mac: Ethernet MAC instance
+    *
+    * @return
+    *      - ESP_OK: stop Ethernet MAC successfully
+    *      - ESP_FAIL: stop Ethernet MAC failed because some error occurred
+    *
+    */
+    esp_err_t (*stop)(esp_eth_mac_t *mac);
+
+    /**
     * @brief Transmit packet from Ethernet MAC
     *
     * @param[in] mac: Ethernet MAC instance
@@ -97,10 +121,14 @@ struct esp_eth_mac_s {
     * @param[out] length: length of the received packet
     *
     * @note Memory of buf is allocated in the Layer2, make sure it get free after process.
+    * @note Before this function got invoked, the value of "length" should set by user, equals the size of buffer.
+    *       After the function returned, the value of "length" means the real length of received data.
     *
     * @return
     *      - ESP_OK: receive packet successfully
     *      - ESP_ERR_INVALID_ARG: receive packet failed because of invalid argument
+    *      - ESP_ERR_INVALID_SIZE: input buffer size is not enough to hold the incoming data.
+    *                              in this case, value of returned "length" indicates the real size of incoming data.
     *      - ESP_FAIL: receive packet failed because some other error occurred
     *
     */
@@ -251,6 +279,7 @@ typedef struct {
 } eth_mac_config_t;
 
 #define ETH_MAC_FLAG_WORK_WITH_CACHE_DISABLE (1 << 0) /*!< MAC driver can work when cache is disabled */
+#define ETH_MAC_FLAG_PIN_TO_CORE (1 << 1)             /*!< Pin MAC task to the CPU core where driver installation happened */
 
 /**
  * @brief Default configuration for Ethernet MAC object
@@ -277,7 +306,7 @@ typedef struct {
 *      - NULL: create MAC instance failed because some error occurred
 */
 esp_eth_mac_t *esp_eth_mac_new_esp32(const eth_mac_config_t *config);
-#endif
+#endif // CONFIG_ETH_USE_ESP32_EMAC
 
 #if CONFIG_ETH_SPI_ETHERNET_DM9051
 /**
@@ -310,7 +339,21 @@ typedef struct {
 *      - NULL: create MAC instance failed because some error occurred
 */
 esp_eth_mac_t *esp_eth_mac_new_dm9051(const eth_dm9051_config_t *dm9051_config, const eth_mac_config_t *mac_config);
-#endif
+#endif // CONFIG_ETH_SPI_ETHERNET_DM9051
+
+#if CONFIG_ETH_USE_OPENETH
+/**
+* @brief Create OpenCores Ethernet MAC instance
+*
+* @param config: Ethernet MAC configuration
+*
+* @return
+*      - instance: create MAC instance successfully
+*      - NULL: create MAC instance failed because some error occurred
+*/
+esp_eth_mac_t *esp_eth_mac_new_openeth(const eth_mac_config_t *config);
+#endif // CONFIG_ETH_USE_OPENETH
+
 #ifdef __cplusplus
 }
 #endif

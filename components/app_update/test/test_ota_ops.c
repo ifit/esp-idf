@@ -58,7 +58,7 @@ TEST_CASE("esp_ota_get_next_update_partition logic", "[ota]")
     TEST_ASSERT_NOT_NULL(ota_1);
     TEST_ASSERT_NULL(ota_2); /* this partition shouldn't exist in test partition table */
 
-    TEST_ASSERT_EQUAL_PTR(factory, running); /* this may not be true if/when we get OTA tests that do OTA updates */ 
+    TEST_ASSERT_EQUAL_PTR(factory, running); /* this may not be true if/when we get OTA tests that do OTA updates */
 
     /* (The test steps verify subtypes before verifying pointer equality, because the failure messages are more readable
        this way.)
@@ -84,7 +84,7 @@ TEST_CASE("esp_ota_get_next_update_partition logic", "[ota]")
     TEST_ASSERT_EQUAL_PTR(ota_0, p);
 }
 
-TEST_CASE("esp_ota_get_partition_description ", "[ota]")
+TEST_CASE("esp_ota_get_partition_description", "[ota]")
 {
     const esp_partition_t *running = esp_ota_get_running_partition();
     TEST_ASSERT_NOT_NULL(running);

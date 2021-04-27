@@ -5,8 +5,8 @@
 #if __has_include("soc/soc.h")
 #include "soc/soc.h"
 #endif
-#if __has_include("esp32/ulp.h")
-#include "esp32/ulp.h"
+#if __has_include("esp_ds.h")
+#include "esp_ds.h"
 #endif
 #if __has_include("esp_efuse.h")
 #include "esp_efuse.h"
@@ -26,6 +26,9 @@
 #if __has_include("esp_mesh.h")
 #include "esp_mesh.h"
 #endif
+#if __has_include("esp_netif_types.h")
+#include "esp_netif_types.h"
+#endif
 #if __has_include("esp_now.h")
 #include "esp_now.h"
 #endif
@@ -34,6 +37,9 @@
 #endif
 #if __has_include("esp_ping.h")
 #include "esp_ping.h"
+#endif
+#if __has_include("esp_serial_slave_link/essl.h")
+#include "esp_serial_slave_link/essl.h"
 #endif
 #if __has_include("esp_spi_flash.h")
 #include "esp_spi_flash.h"
@@ -53,8 +59,8 @@
 #if __has_include("nvs.h")
 #include "nvs.h"
 #endif
-#if __has_include("tcpip_adapter.h")
-#include "tcpip_adapter.h"
+#if __has_include("ulp_common.h")
+#include "ulp_common.h"
 #endif
 
 #ifdef CONFIG_ESP_ERR_TO_NAME_LOOKUP
@@ -105,6 +111,10 @@ static const esp_err_msg_t esp_err_msg_table[] = {
 #   endif
 #   ifdef      ESP_ERR_INVALID_MAC
     ERR_TBL_IT(ESP_ERR_INVALID_MAC),                            /*   267 0x10b MAC address was invalid */
+#   endif
+    // components/esp_serial_slave_link/include/esp_serial_slave_link/essl.h
+#   ifdef      ESP_ERR_NOT_FINISHED
+    ERR_TBL_IT(ESP_ERR_NOT_FINISHED),                           /*   513 0x201 */
 #   endif
     // components/nvs_flash/include/nvs.h
 #   ifdef      ESP_ERR_NVS_BASE
@@ -203,7 +213,7 @@ static const esp_err_msg_t esp_err_msg_table[] = {
                                                                                 API functions.  NVS key is different in
                                                                                 comparison */
 #   endif
-    // components/ulp/include/esp32/ulp.h
+    // components/ulp/include/ulp_common.h
 #   ifdef      ESP_ERR_ULP_BASE
     ERR_TBL_IT(ESP_ERR_ULP_BASE),                               /*  4608 0x1200 Offset for ULP-related error codes */
 #   endif
@@ -340,10 +350,16 @@ static const esp_err_msg_t esp_err_msg_table[] = {
     ERR_TBL_IT(ESP_ERR_WIFI_POST),                              /* 12306 0x3012 Failed to post the event to WiFi task */
 #   endif
 #   ifdef      ESP_ERR_WIFI_INIT_STATE
-    ERR_TBL_IT(ESP_ERR_WIFI_INIT_STATE),                        /* 12307 0x3013 Invalod WiFi state when init/deinit is called */
+    ERR_TBL_IT(ESP_ERR_WIFI_INIT_STATE),                        /* 12307 0x3013 Invalid WiFi state when init/deinit is called */
 #   endif
 #   ifdef      ESP_ERR_WIFI_STOP_STATE
     ERR_TBL_IT(ESP_ERR_WIFI_STOP_STATE),                        /* 12308 0x3014 Returned when WiFi is stopping */
+#   endif
+#   ifdef      ESP_ERR_WIFI_NOT_ASSOC
+    ERR_TBL_IT(ESP_ERR_WIFI_NOT_ASSOC),                         /* 12309 0x3015 The WiFi connection is not associated */
+#   endif
+#   ifdef      ESP_ERR_WIFI_TX_DISALLOW
+    ERR_TBL_IT(ESP_ERR_WIFI_TX_DISALLOW),                       /* 12310 0x3016 The WiFi TX is disallowed */
 #   endif
     // components/wpa_supplicant/include/esp_supplicant/esp_wps.h
 #   ifdef      ESP_ERR_WIFI_REGISTRAR
@@ -454,30 +470,51 @@ static const esp_err_msg_t esp_err_msg_table[] = {
 #   ifdef      ESP_ERR_MESH_VOTING
     ERR_TBL_IT(ESP_ERR_MESH_VOTING),                            /* 16406 0x4016 */
 #   endif
-    // components/tcpip_adapter/include/tcpip_adapter.h
-#   ifdef      ESP_ERR_TCPIP_ADAPTER_BASE
-    ERR_TBL_IT(ESP_ERR_TCPIP_ADAPTER_BASE),                     /* 20480 0x5000 */
+#   ifdef      ESP_ERR_MESH_XMIT
+    ERR_TBL_IT(ESP_ERR_MESH_XMIT),                              /* 16407 0x4017 */
 #   endif
-#   ifdef      ESP_ERR_TCPIP_ADAPTER_INVALID_PARAMS
-    ERR_TBL_IT(ESP_ERR_TCPIP_ADAPTER_INVALID_PARAMS),           /* 20481 0x5001 */
+#   ifdef      ESP_ERR_MESH_QUEUE_READ
+    ERR_TBL_IT(ESP_ERR_MESH_QUEUE_READ),                        /* 16408 0x4018 */
 #   endif
-#   ifdef      ESP_ERR_TCPIP_ADAPTER_IF_NOT_READY
-    ERR_TBL_IT(ESP_ERR_TCPIP_ADAPTER_IF_NOT_READY),             /* 20482 0x5002 */
+#   ifdef      ESP_ERR_MESH_PS
+    ERR_TBL_IT(ESP_ERR_MESH_PS),                                /* 16409 0x4019 */
 #   endif
-#   ifdef      ESP_ERR_TCPIP_ADAPTER_DHCPC_START_FAILED
-    ERR_TBL_IT(ESP_ERR_TCPIP_ADAPTER_DHCPC_START_FAILED),       /* 20483 0x5003 */
+#   ifdef      ESP_ERR_MESH_RECV_RELEASE
+    ERR_TBL_IT(ESP_ERR_MESH_RECV_RELEASE),                      /* 16410 0x401a */
 #   endif
-#   ifdef      ESP_ERR_TCPIP_ADAPTER_DHCP_ALREADY_STARTED
-    ERR_TBL_IT(ESP_ERR_TCPIP_ADAPTER_DHCP_ALREADY_STARTED),     /* 20484 0x5004 */
+    // components/esp_netif/include/esp_netif_types.h
+#   ifdef      ESP_ERR_ESP_NETIF_BASE
+    ERR_TBL_IT(ESP_ERR_ESP_NETIF_BASE),                         /* 20480 0x5000 */
 #   endif
-#   ifdef      ESP_ERR_TCPIP_ADAPTER_DHCP_ALREADY_STOPPED
-    ERR_TBL_IT(ESP_ERR_TCPIP_ADAPTER_DHCP_ALREADY_STOPPED),     /* 20485 0x5005 */
+#   ifdef      ESP_ERR_ESP_NETIF_INVALID_PARAMS
+    ERR_TBL_IT(ESP_ERR_ESP_NETIF_INVALID_PARAMS),               /* 20481 0x5001 */
 #   endif
-#   ifdef      ESP_ERR_TCPIP_ADAPTER_NO_MEM
-    ERR_TBL_IT(ESP_ERR_TCPIP_ADAPTER_NO_MEM),                   /* 20486 0x5006 */
+#   ifdef      ESP_ERR_ESP_NETIF_IF_NOT_READY
+    ERR_TBL_IT(ESP_ERR_ESP_NETIF_IF_NOT_READY),                 /* 20482 0x5002 */
 #   endif
-#   ifdef      ESP_ERR_TCPIP_ADAPTER_DHCP_NOT_STOPPED
-    ERR_TBL_IT(ESP_ERR_TCPIP_ADAPTER_DHCP_NOT_STOPPED),         /* 20487 0x5007 */
+#   ifdef      ESP_ERR_ESP_NETIF_DHCPC_START_FAILED
+    ERR_TBL_IT(ESP_ERR_ESP_NETIF_DHCPC_START_FAILED),           /* 20483 0x5003 */
+#   endif
+#   ifdef      ESP_ERR_ESP_NETIF_DHCP_ALREADY_STARTED
+    ERR_TBL_IT(ESP_ERR_ESP_NETIF_DHCP_ALREADY_STARTED),         /* 20484 0x5004 */
+#   endif
+#   ifdef      ESP_ERR_ESP_NETIF_DHCP_ALREADY_STOPPED
+    ERR_TBL_IT(ESP_ERR_ESP_NETIF_DHCP_ALREADY_STOPPED),         /* 20485 0x5005 */
+#   endif
+#   ifdef      ESP_ERR_ESP_NETIF_NO_MEM
+    ERR_TBL_IT(ESP_ERR_ESP_NETIF_NO_MEM),                       /* 20486 0x5006 */
+#   endif
+#   ifdef      ESP_ERR_ESP_NETIF_DHCP_NOT_STOPPED
+    ERR_TBL_IT(ESP_ERR_ESP_NETIF_DHCP_NOT_STOPPED),             /* 20487 0x5007 */
+#   endif
+#   ifdef      ESP_ERR_ESP_NETIF_DRIVER_ATTACH_FAILED
+    ERR_TBL_IT(ESP_ERR_ESP_NETIF_DRIVER_ATTACH_FAILED),         /* 20488 0x5008 */
+#   endif
+#   ifdef      ESP_ERR_ESP_NETIF_INIT_FAILED
+    ERR_TBL_IT(ESP_ERR_ESP_NETIF_INIT_FAILED),                  /* 20489 0x5009 */
+#   endif
+#   ifdef      ESP_ERR_ESP_NETIF_DNS_NOT_CONFIGURED
+    ERR_TBL_IT(ESP_ERR_ESP_NETIF_DNS_NOT_CONFIGURED),           /* 20490 0x500a */
 #   endif
     // components/esp_common/include/esp_err.h
 #   ifdef      ESP_ERR_FLASH_BASE
@@ -589,6 +626,33 @@ static const esp_err_msg_t esp_err_msg_table[] = {
     ERR_TBL_IT(ESP_ERR_ESP_TLS_CONNECTION_TIMEOUT),             /* 32786 0x8012 new connection in esp_tls_low_level_conn
                                                                                 connection timeouted */
 #   endif
+#   ifdef      ESP_ERR_WOLFSSL_SSL_SET_HOSTNAME_FAILED
+    ERR_TBL_IT(ESP_ERR_WOLFSSL_SSL_SET_HOSTNAME_FAILED),        /* 32787 0x8013 wolfSSL api returned error */
+#   endif
+#   ifdef      ESP_ERR_WOLFSSL_SSL_CONF_ALPN_PROTOCOLS_FAILED
+    ERR_TBL_IT(ESP_ERR_WOLFSSL_SSL_CONF_ALPN_PROTOCOLS_FAILED), /* 32788 0x8014 wolfSSL api returned error */
+#   endif
+#   ifdef      ESP_ERR_WOLFSSL_CERT_VERIFY_SETUP_FAILED
+    ERR_TBL_IT(ESP_ERR_WOLFSSL_CERT_VERIFY_SETUP_FAILED),       /* 32789 0x8015 wolfSSL api returned error */
+#   endif
+#   ifdef      ESP_ERR_WOLFSSL_KEY_VERIFY_SETUP_FAILED
+    ERR_TBL_IT(ESP_ERR_WOLFSSL_KEY_VERIFY_SETUP_FAILED),        /* 32790 0x8016 wolfSSL api returned error */
+#   endif
+#   ifdef      ESP_ERR_WOLFSSL_SSL_HANDSHAKE_FAILED
+    ERR_TBL_IT(ESP_ERR_WOLFSSL_SSL_HANDSHAKE_FAILED),           /* 32791 0x8017 wolfSSL api returned failed */
+#   endif
+#   ifdef      ESP_ERR_WOLFSSL_CTX_SETUP_FAILED
+    ERR_TBL_IT(ESP_ERR_WOLFSSL_CTX_SETUP_FAILED),               /* 32792 0x8018 wolfSSL api returned failed */
+#   endif
+#   ifdef      ESP_ERR_WOLFSSL_SSL_SETUP_FAILED
+    ERR_TBL_IT(ESP_ERR_WOLFSSL_SSL_SETUP_FAILED),               /* 32793 0x8019 wolfSSL api returned failed */
+#   endif
+#   ifdef      ESP_ERR_WOLFSSL_SSL_WRITE_FAILED
+    ERR_TBL_IT(ESP_ERR_WOLFSSL_SSL_WRITE_FAILED),               /* 32794 0x801a wolfSSL api returned failed */
+#   endif
+#   ifdef      ESP_ERR_ESP_TLS_SE_FAILED
+    ERR_TBL_IT(ESP_ERR_ESP_TLS_SE_FAILED),                      /* 32795 0x801b */
+#   endif
     // components/esp_https_ota/include/esp_https_ota.h
 #   ifdef      ESP_ERR_HTTPS_OTA_BASE
     ERR_TBL_IT(ESP_ERR_HTTPS_OTA_BASE),                         /* 36864 0x9000 */
@@ -636,6 +700,23 @@ static const esp_err_msg_t esp_err_msg_table[] = {
 #   endif
 #   ifdef      ESP_ERR_HTTPD_TASK
     ERR_TBL_IT(ESP_ERR_HTTPD_TASK),                             /* 45064 0xb008 Failed to launch server task/thread */
+#   endif
+    // components/esp32s2/include/esp_ds.h
+#   ifdef      ESP_ERR_HW_CRYPTO_DS_BASE
+    ERR_TBL_IT(ESP_ERR_HW_CRYPTO_DS_BASE),                      /* 49152 0xc000 Starting number of HW cryptography
+                                                                                module error codes */
+#   endif
+#   ifdef      ESP_ERR_HW_CRYPTO_DS_HMAC_FAIL
+    ERR_TBL_IT(ESP_ERR_HW_CRYPTO_DS_HMAC_FAIL),                 /* 49153 0xc001 HMAC peripheral problem */
+#   endif
+#   ifdef      ESP_ERR_HW_CRYPTO_DS_INVALID_KEY
+    ERR_TBL_IT(ESP_ERR_HW_CRYPTO_DS_INVALID_KEY),               /* 49154 0xc002 */
+#   endif
+#   ifdef      ESP_ERR_HW_CRYPTO_DS_INVALID_DIGEST
+    ERR_TBL_IT(ESP_ERR_HW_CRYPTO_DS_INVALID_DIGEST),            /* 49156 0xc004 */
+#   endif
+#   ifdef      ESP_ERR_HW_CRYPTO_DS_INVALID_PADDING
+    ERR_TBL_IT(ESP_ERR_HW_CRYPTO_DS_INVALID_PADDING),           /* 49157 0xc005 */
 #   endif
 };
 #endif //CONFIG_ESP_ERR_TO_NAME_LOOKUP

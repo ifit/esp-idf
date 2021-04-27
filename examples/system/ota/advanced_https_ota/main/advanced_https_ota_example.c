@@ -12,7 +12,6 @@
 #include "freertos/event_groups.h"
 #include "esp_system.h"
 #include "esp_event.h"
-#include "esp_event_loop.h"
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 #include "esp_http_client.h"
@@ -62,6 +61,7 @@ void advanced_ota_example_task(void *pvParameter)
         .url = CONFIG_EXAMPLE_FIRMWARE_UPGRADE_URL,
         .cert_pem = (char *)server_cert_pem_start,
         .timeout_ms = CONFIG_EXAMPLE_OTA_RECV_TIMEOUT,
+        .keep_alive_enable = true,
     };
 
 #ifdef CONFIG_EXAMPLE_FIRMWARE_UPGRADE_URL_FROM_STDIN
@@ -136,7 +136,7 @@ ota_end:
     }
 }
 
-void app_main()
+void app_main(void)
 {
     // Initialize NVS.
     esp_err_t err = nvs_flash_init();
@@ -150,7 +150,7 @@ void app_main()
     }
     ESP_ERROR_CHECK( err );
 
-    tcpip_adapter_init();
+    ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
     /* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.

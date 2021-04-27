@@ -6,6 +6,8 @@
 # - Run flash build target to rebuild and flash entire project (Ctrl-T Ctrl-F)
 # - Run app-flash build target to rebuild and flash app only (Ctrl-T Ctrl-A)
 # - If gdbstub output is detected, gdb is automatically loaded
+# - If core dump output is detected, it is converted to a human-readable report
+#   by espcoredump.py.
 #
 # Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
 #
@@ -46,12 +48,15 @@ import shlex
 import time
 import sys
 import serial
+import serial.tools.list_ports
 import serial.tools.miniterm as miniterm
 import threading
 import ctypes
 import types
 from distutils.version import StrictVersion
 from io import open
+import textwrap
+import tempfile
 
 key_description = miniterm.key_description
 
@@ -68,23 +73,32 @@ CTRL_X = '\x18'
 CTRL_L = '\x0c'
 CTRL_RBRACKET = '\x1d'  # Ctrl+]
 
+# Command parsed from console inputs
+CMD_STOP = 1
+CMD_RESET = 2
+CMD_MAKE = 3
+CMD_APP_FLASH = 4
+CMD_OUTPUT_TOGGLE = 5
+CMD_TOGGLE_LOGGING = 6
+CMD_ENTER_BOOT = 7
+
 # ANSI terminal codes (if changed, regular expressions in LineMatcher need to be udpated)
 ANSI_RED = '\033[1;31m'
 ANSI_YELLOW = '\033[0;33m'
 ANSI_NORMAL = '\033[0m'
 
 
-def color_print(message, color):
+def color_print(message, color, newline='\n'):
     """ Print a message to stderr with colored highlighting """
-    sys.stderr.write("%s%s%s\n" % (color, message,  ANSI_NORMAL))
+    sys.stderr.write("%s%s%s%s" % (color, message,  ANSI_NORMAL, newline))
 
 
-def yellow_print(message):
-    color_print(message, ANSI_YELLOW)
+def yellow_print(message, newline='\n'):
+    color_print(message, ANSI_YELLOW, newline)
 
 
-def red_print(message):
-    color_print(message, ANSI_RED)
+def red_print(message, newline='\n'):
+    color_print(message, ANSI_RED, newline)
 
 
 __version__ = "1.1"
@@ -93,6 +107,7 @@ __version__ = "1.1"
 TAG_KEY = 0
 TAG_SERIAL = 1
 TAG_SERIAL_FLUSH = 2
+TAG_CMD = 3
 
 # regex matches an potential PC value (0x4xxxxxxx)
 MATCH_PCADDR = re.compile(r'0x4[0-9a-f]{7}', re.IGNORECASE)
@@ -100,6 +115,20 @@ MATCH_PCADDR = re.compile(r'0x4[0-9a-f]{7}', re.IGNORECASE)
 DEFAULT_TOOLCHAIN_PREFIX = "xtensa-esp32-elf-"
 
 DEFAULT_PRINT_FILTER = ""
+
+# coredump related messages
+COREDUMP_UART_START = b"================= CORE DUMP START ================="
+COREDUMP_UART_END = b"================= CORE DUMP END ================="
+COREDUMP_UART_PROMPT = b"Press Enter to print core dump to UART..."
+
+# coredump states
+COREDUMP_IDLE = 0
+COREDUMP_READING = 1
+COREDUMP_DONE = 2
+
+# coredump decoding options
+COREDUMP_DECODE_DISABLE = "disable"
+COREDUMP_DECODE_INFO = "info"
 
 
 class StoppableThread(object):
@@ -150,10 +179,12 @@ class ConsoleReader(StoppableThread):
     """ Read input keys from the console and push them to the queue,
     until stopped.
     """
-    def __init__(self, console, event_queue, test_mode):
+    def __init__(self, console, event_queue, cmd_queue, parser, test_mode):
         super(ConsoleReader, self).__init__()
         self.console = console
         self.event_queue = event_queue
+        self.cmd_queue = cmd_queue
+        self.parser = parser
         self.test_mode = test_mode
 
     def run(self):
@@ -182,7 +213,15 @@ class ConsoleReader(StoppableThread):
                 except KeyboardInterrupt:
                     c = '\x03'
                 if c is not None:
-                    self.event_queue.put((TAG_KEY, c), False)
+                    ret = self.parser.parse(c)
+                    if ret is not None:
+                        (tag, cmd) = ret
+                        # stop command should be executed last
+                        if tag == TAG_CMD and cmd != CMD_STOP:
+                            self.cmd_queue.put(ret)
+                        else:
+                            self.event_queue.put(ret)
+
         finally:
             self.console.cleanup()
 
@@ -203,6 +242,114 @@ class ConsoleReader(StoppableThread):
             import fcntl
             import termios
             fcntl.ioctl(self.console.fd, termios.TIOCSTI, b'\0')
+
+
+class ConsoleParser(object):
+
+    def __init__(self, eol="CRLF"):
+        self.translate_eol = {
+            "CRLF": lambda c: c.replace("\n", "\r\n"),
+            "CR": lambda c: c.replace("\n", "\r"),
+            "LF": lambda c: c.replace("\r", "\n"),
+        }[eol]
+        self.menu_key = CTRL_T
+        self.exit_key = CTRL_RBRACKET
+        self._pressed_menu_key = False
+
+    def parse(self, key):
+        ret = None
+        if self._pressed_menu_key:
+            ret = self._handle_menu_key(key)
+        elif key == self.menu_key:
+            self._pressed_menu_key = True
+        elif key == self.exit_key:
+            ret = (TAG_CMD, CMD_STOP)
+        else:
+            key = self.translate_eol(key)
+            ret = (TAG_KEY, key)
+        return ret
+
+    def _handle_menu_key(self, c):
+        ret = None
+        if c == self.exit_key or c == self.menu_key:  # send verbatim
+            ret = (TAG_KEY, c)
+        elif c in [CTRL_H, 'h', 'H', '?']:
+            red_print(self.get_help_text())
+        elif c == CTRL_R:  # Reset device via RTS
+            ret = (TAG_CMD, CMD_RESET)
+        elif c == CTRL_F:  # Recompile & upload
+            ret = (TAG_CMD, CMD_MAKE)
+        elif c in [CTRL_A, 'a', 'A']:  # Recompile & upload app only
+            # "CTRL-A" cannot be captured with the default settings of the Windows command line, therefore, "A" can be used
+            # instead
+            ret = (TAG_CMD, CMD_APP_FLASH)
+        elif c == CTRL_Y:  # Toggle output display
+            ret = (TAG_CMD, CMD_OUTPUT_TOGGLE)
+        elif c == CTRL_L:  # Toggle saving output into file
+            ret = (TAG_CMD, CMD_TOGGLE_LOGGING)
+        elif c == CTRL_P:
+            yellow_print("Pause app (enter bootloader mode), press Ctrl-T Ctrl-R to restart")
+            # to fast trigger pause without press menu key
+            ret = (TAG_CMD, CMD_ENTER_BOOT)
+        elif c in [CTRL_X, 'x', 'X']:  # Exiting from within the menu
+            ret = (TAG_CMD, CMD_STOP)
+        else:
+            red_print('--- unknown menu character {} --'.format(key_description(c)))
+
+        self._pressed_menu_key = False
+        return ret
+
+    def get_help_text(self):
+        text = """\
+            --- idf_monitor ({version}) - ESP-IDF monitor tool
+            --- based on miniterm from pySerial
+            ---
+            --- {exit:8} Exit program
+            --- {menu:8} Menu escape key, followed by:
+            --- Menu keys:
+            ---    {menu:14} Send the menu character itself to remote
+            ---    {exit:14} Send the exit character itself to remote
+            ---    {reset:14} Reset target board via RTS line
+            ---    {makecmd:14} Build & flash project
+            ---    {appmake:14} Build & flash app only
+            ---    {output:14} Toggle output display
+            ---    {log:14} Toggle saving output into file
+            ---    {pause:14} Reset target into bootloader to pause app via RTS line
+            ---    {menuexit:14} Exit program
+        """.format(version=__version__,
+                   exit=key_description(self.exit_key),
+                   menu=key_description(self.menu_key),
+                   reset=key_description(CTRL_R),
+                   makecmd=key_description(CTRL_F),
+                   appmake=key_description(CTRL_A) + ' (or A)',
+                   output=key_description(CTRL_Y),
+                   log=key_description(CTRL_L),
+                   pause=key_description(CTRL_P),
+                   menuexit=key_description(CTRL_X) + ' (or X)')
+        return textwrap.dedent(text)
+
+    def get_next_action_text(self):
+        text = """\
+            --- Press {} to exit monitor.
+            --- Press {} to build & flash project.
+            --- Press {} to build & flash app.
+            --- Press any other key to resume monitor (resets target).
+        """.format(key_description(self.exit_key),
+                   key_description(CTRL_F),
+                   key_description(CTRL_A))
+        return textwrap.dedent(text)
+
+    def parse_next_action_key(self, c):
+        ret = None
+        if c == self.exit_key:
+            ret = (TAG_CMD, CMD_STOP)
+        elif c == CTRL_F:  # Recompile & upload
+            ret = (TAG_CMD, CMD_MAKE)
+        elif c in [CTRL_A, 'a', 'A']:  # Recompile & upload app only
+            # "CTRL-A" cannot be captured with the default settings of the Windows command line, therefore, "A" can be used
+            # instead
+            ret = (TAG_CMD, CMD_APP_FLASH)
+        return ret
 
 
 class SerialReader(StoppableThread):
@@ -313,9 +460,11 @@ class Monitor(object):
     Main difference is that all event processing happens in the main thread, not the worker threads.
     """
     def __init__(self, serial_instance, elf_file, print_filter, make="make", encrypted=False,
-                 toolchain_prefix=DEFAULT_TOOLCHAIN_PREFIX, eol="CRLF"):
+                 toolchain_prefix=DEFAULT_TOOLCHAIN_PREFIX, eol="CRLF",
+                 decode_coredumps=COREDUMP_DECODE_INFO):
         super(Monitor, self).__init__()
         self.event_queue = queue.Queue()
+        self.cmd_queue = queue.Queue()
         self.console = miniterm.Console()
         if os.name == 'nt':
             sys.stderr = ANSIColorConverter(sys.stderr, decode_output=True)
@@ -334,7 +483,8 @@ class Monitor(object):
 
         socket_mode = serial_instance.port.startswith("socket://")  # testing hook - data from serial can make exit the monitor
         self.serial = serial_instance
-        self.console_reader = ConsoleReader(self.console, self.event_queue, socket_mode)
+        self.console_parser = ConsoleParser(eol)
+        self.console_reader = ConsoleReader(self.console, self.event_queue, self.cmd_queue, self.console_parser, socket_mode)
         self.serial_reader = SerialReader(self.serial, self.event_queue)
         self.elf_file = elf_file
         if not os.path.exists(make):
@@ -343,17 +493,8 @@ class Monitor(object):
             self.make = make
         self.encrypted = encrypted
         self.toolchain_prefix = toolchain_prefix
-        self.menu_key = CTRL_T
-        self.exit_key = CTRL_RBRACKET
-
-        self.translate_eol = {
-            "CRLF": lambda c: c.replace("\n", "\r\n"),
-            "CR": lambda c: c.replace("\n", "\r"),
-            "LF": lambda c: c.replace("\r", "\n"),
-        }[eol]
 
         # internal state
-        self._pressed_menu_key = False
         self._last_line_part = b""
         self._gdb_buffer = b""
         self._pc_address_buffer = b""
@@ -363,6 +504,9 @@ class Monitor(object):
         self._output_enabled = True
         self._serial_check_exit = socket_mode
         self._log_file = None
+        self._decode_coredumps = decode_coredumps
+        self._reading_coredump = COREDUMP_IDLE
+        self._coredump_buffer = b""
 
     def invoke_processing_last_line(self):
         self.event_queue.put((TAG_SERIAL_FLUSH, b''), False)
@@ -372,9 +516,24 @@ class Monitor(object):
         self.serial_reader.start()
         try:
             while self.console_reader.alive and self.serial_reader.alive:
-                (event_tag, data) = self.event_queue.get()
-                if event_tag == TAG_KEY:
-                    self.handle_key(data)
+                try:
+                    item = self.cmd_queue.get_nowait()
+                except queue.Empty:
+                    try:
+                        item = self.event_queue.get(True, 0.03)
+                    except queue.Empty:
+                        continue
+
+                (event_tag, data) = item
+                if event_tag == TAG_CMD:
+                    self.handle_commands(data)
+                elif event_tag == TAG_KEY:
+                    try:
+                        self.serial.write(codecs.encode(data))
+                    except serial.SerialException:
+                        pass  # this shouldn't happen, but sometimes port has closed in serial thread
+                    except UnicodeEncodeError:
+                        pass  # this can happen if a non-ascii character was passed, ignoring
                 elif event_tag == TAG_SERIAL:
                     self.handle_serial_input(data)
                     if self._invoke_processing_last_line_timer is not None:
@@ -404,24 +563,6 @@ class Monitor(object):
                 pass
             sys.stderr.write(ANSI_NORMAL + "\n")
 
-    def handle_key(self, key):
-        if self._pressed_menu_key:
-            self.handle_menu_key(key)
-            self._pressed_menu_key = False
-        elif key == self.menu_key:
-            self._pressed_menu_key = True
-        elif key == self.exit_key:
-            self.console_reader.stop()
-            self.serial_reader.stop()
-        else:
-            try:
-                key = self.translate_eol(key)
-                self.serial.write(codecs.encode(key))
-            except serial.SerialException:
-                pass  # this shouldn't happen, but sometimes port has closed in serial thread
-            except UnicodeEncodeError:
-                pass  # this can happen if a non-ascii character was passed, ignoring
-
     def handle_serial_input(self, data, finalize_line=False):
         sp = data.split(b'\n')
         if self._last_line_part != b"":
@@ -433,11 +574,13 @@ class Monitor(object):
             self._last_line_part = sp.pop()
         for line in sp:
             if line != b"":
-                if self._serial_check_exit and line == self.exit_key.encode('latin-1'):
+                if self._serial_check_exit and line == self.console_parser.exit_key.encode('latin-1'):
                     raise SerialStopException()
+                self.check_coredump_trigger_before_print(line)
                 if self._force_line_print or self._line_matcher.match(line.decode(errors="ignore")):
                     self._print(line + b'\n')
                     self.handle_possible_pc_address_in_line(line)
+                self.check_coredump_trigger_after_print(line)
                 self.check_gdbstub_trigger(line)
                 self._force_line_print = False
         # Now we have the last part (incomplete line) in _last_line_part. By
@@ -469,74 +612,6 @@ class Monitor(object):
         for m in re.finditer(MATCH_PCADDR, line.decode(errors="ignore")):
             self.lookup_pc_address(m.group())
 
-    def handle_menu_key(self, c):
-        if c == self.exit_key or c == self.menu_key:  # send verbatim
-            self.serial.write(codecs.encode(c))
-        elif c in [CTRL_H, 'h', 'H', '?']:
-            red_print(self.get_help_text())
-        elif c == CTRL_R:  # Reset device via RTS
-            self.serial.setRTS(True)
-            self.serial.setDTR(self.serial.dtr)  # usbser.sys workaround
-            time.sleep(0.2)
-            self.serial.setRTS(False)
-            self.serial.setDTR(self.serial.dtr)  # usbser.sys workaround
-            self.output_enable(True)
-        elif c == CTRL_F:  # Recompile & upload
-            self.run_make("encrypted-flash" if self.encrypted else "flash")
-        elif c in [CTRL_A, 'a', 'A']:  # Recompile & upload app only
-            # "CTRL-A" cannot be captured with the default settings of the Windows command line, therefore, "A" can be used
-            # instead
-            self.run_make("encrypted-app-flash" if self.encrypted else "app-flash")
-        elif c == CTRL_Y:  # Toggle output display
-            self.output_toggle()
-        elif c == CTRL_L:  # Toggle saving output into file
-            self.toggle_logging()
-        elif c == CTRL_P:
-            yellow_print("Pause app (enter bootloader mode), press Ctrl-T Ctrl-R to restart")
-            # to fast trigger pause without press menu key
-            self.serial.setDTR(False)  # IO0=HIGH
-            self.serial.setRTS(True)   # EN=LOW, chip in reset
-            self.serial.setDTR(self.serial.dtr)  # usbser.sys workaround
-            time.sleep(1.3)  # timeouts taken from esptool.py, includes esp32r0 workaround. defaults: 0.1
-            self.serial.setDTR(True)   # IO0=LOW
-            self.serial.setRTS(False)  # EN=HIGH, chip out of reset
-            self.serial.setDTR(self.serial.dtr)  # usbser.sys workaround
-            time.sleep(0.45)  # timeouts taken from esptool.py, includes esp32r0 workaround. defaults: 0.05
-            self.serial.setDTR(False)  # IO0=HIGH, done
-        elif c in [CTRL_X, 'x', 'X']:  # Exiting from within the menu
-            self.console_reader.stop()
-            self.serial_reader.stop()
-        else:
-            red_print('--- unknown menu character {} --'.format(key_description(c)))
-
-    def get_help_text(self):
-        return """
---- idf_monitor ({version}) - ESP-IDF monitor tool
---- based on miniterm from pySerial
----
---- {exit:8} Exit program
---- {menu:8} Menu escape key, followed by:
---- Menu keys:
----    {menu:14} Send the menu character itself to remote
----    {exit:14} Send the exit character itself to remote
----    {reset:14} Reset target board via RTS line
----    {makecmd:14} Build & flash project
----    {appmake:14} Build & flash app only
----    {output:14} Toggle output display
----    {log:14} Toggle saving output into file
----    {pause:14} Reset target into bootloader to pause app via RTS line
----    {menuexit:14} Exit program
-""".format(version=__version__,
-           exit=key_description(self.exit_key),
-           menu=key_description(self.menu_key),
-           reset=key_description(CTRL_R),
-           makecmd=key_description(CTRL_F),
-           appmake=key_description(CTRL_A) + ' (or A)',
-           output=key_description(CTRL_Y),
-           log=key_description(CTRL_L),
-           pause=key_description(CTRL_P),
-           menuexit=key_description(CTRL_X) + ' (or X)')
-
     def __enter__(self):
         """ Use 'with self' to temporarily disable monitoring behaviour """
         self.serial_reader.stop()
@@ -550,25 +625,22 @@ class Monitor(object):
     def prompt_next_action(self, reason):
         self.console.setup()  # set up console to trap input characters
         try:
-            red_print("""
---- {}
---- Press {} to exit monitor.
---- Press {} to build & flash project.
---- Press {} to build & flash app.
---- Press any other key to resume monitor (resets target).""".format(reason,
-                                                                     key_description(self.exit_key),
-                                                                     key_description(CTRL_F),
-                                                                     key_description(CTRL_A)))
+            red_print("--- {}".format(reason))
+            red_print(self.console_parser.get_next_action_text())
+
             k = CTRL_T  # ignore CTRL-T here, so people can muscle-memory Ctrl-T Ctrl-F, etc.
             while k == CTRL_T:
                 k = self.console.getkey()
         finally:
             self.console.cleanup()
-        if k == self.exit_key:
-            self.event_queue.put((TAG_KEY, k))
-        elif k in [CTRL_F, CTRL_A]:
-            self.event_queue.put((TAG_KEY, self.menu_key))
-            self.event_queue.put((TAG_KEY, k))
+        ret = self.console_parser.parse_next_action_key(k)
+        if ret is not None:
+            cmd = ret[1]
+            if cmd == CMD_STOP:
+                # the stop command should be handled last
+                self.event_queue.put(ret)
+            else:
+                self.cmd_queue.put(ret)
 
     def run_make(self, target):
         with self:
@@ -577,7 +649,7 @@ class Monitor(object):
             else:
                 popen_args = [self.make, target]
             yellow_print("Running %s..." % " ".join(popen_args))
-            p = subprocess.Popen(popen_args)
+            p = subprocess.Popen(popen_args, env=os.environ)
             try:
                 p.wait()
             except KeyboardInterrupt:
@@ -611,6 +683,83 @@ class Monitor(object):
                 self.run_gdb()
             else:
                 red_print("Malformed gdb message... calculated checksum %02x received %02x" % (chsum, calc_chsum))
+
+    def check_coredump_trigger_before_print(self, line):
+        if self._decode_coredumps == COREDUMP_DECODE_DISABLE:
+            return
+
+        if COREDUMP_UART_PROMPT in line:
+            yellow_print("Initiating core dump!")
+            self.event_queue.put((TAG_KEY, '\n'))
+            return
+
+        if COREDUMP_UART_START in line:
+            yellow_print("Core dump started (further output muted)")
+            self._reading_coredump = COREDUMP_READING
+            self._coredump_buffer = b""
+            self._output_enabled = False
+            return
+
+        if COREDUMP_UART_END in line:
+            self._reading_coredump = COREDUMP_DONE
+            yellow_print("\nCore dump finished!")
+            self.process_coredump()
+            return
+
+        if self._reading_coredump == COREDUMP_READING:
+            kb = 1024
+            buffer_len_kb = len(self._coredump_buffer) // kb
+            self._coredump_buffer += line.replace(b'\r', b'') + b'\n'
+            new_buffer_len_kb = len(self._coredump_buffer) // kb
+            if new_buffer_len_kb > buffer_len_kb:
+                yellow_print("Received %3d kB..." % (new_buffer_len_kb), newline='\r')
+
+    def check_coredump_trigger_after_print(self, line):
+        if self._decode_coredumps == COREDUMP_DECODE_DISABLE:
+            return
+
+        # Re-enable output after the last line of core dump has been consumed
+        if not self._output_enabled and self._reading_coredump == COREDUMP_DONE:
+            self._reading_coredump = COREDUMP_IDLE
+            self._output_enabled = True
+            self._coredump_buffer = b""
+
+    def process_coredump(self):
+        if self._decode_coredumps != COREDUMP_DECODE_INFO:
+            raise NotImplementedError("process_coredump: %s not implemented" % self._decode_coredumps)
+
+        coredump_script = os.path.join(os.path.dirname(__file__), "..", "components", "espcoredump", "espcoredump.py")
+        coredump_file = None
+        try:
+            # On Windows, the temporary file can't be read unless it is closed.
+            # Set delete=False and delete the file manually later.
+            with tempfile.NamedTemporaryFile(mode="wb", delete=False) as coredump_file:
+                coredump_file.write(self._coredump_buffer)
+                coredump_file.flush()
+
+            cmd = [sys.executable,
+                   coredump_script,
+                   "info_corefile",
+                   "--core", coredump_file.name,
+                   "--core-format", "b64",
+                   self.elf_file
+                   ]
+            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+            self._output_enabled = True
+            self._print(output)
+            self._output_enabled = False  # Will be reenabled in check_coredump_trigger_after_print
+        except subprocess.CalledProcessError as e:
+            yellow_print("Failed to run espcoredump script: {}\n\n".format(e))
+            self._output_enabled = True
+            self._print(COREDUMP_UART_START + b'\n')
+            self._print(self._coredump_buffer)
+            # end line will be printed in handle_serial_input
+        finally:
+            if coredump_file is not None:
+                try:
+                    os.unlink(coredump_file.name)
+                except OSError as e:
+                    yellow_print("Couldn't remote temporary core dump file ({})".format(e))
 
     def run_gdb(self):
         with self:  # disable console control
@@ -689,14 +838,58 @@ class Monitor(object):
                 # don't fill-up the screen with the previous errors (probably consequent prints would fail also)
                 self.stop_logging()
 
+    def handle_commands(self, cmd):
+        if cmd == CMD_STOP:
+            self.console_reader.stop()
+            self.serial_reader.stop()
+        elif cmd == CMD_RESET:
+            self.serial.setRTS(True)
+            self.serial.setDTR(self.serial.dtr)  # usbser.sys workaround
+            time.sleep(0.2)
+            self.serial.setRTS(False)
+            self.serial.setDTR(self.serial.dtr)  # usbser.sys workaround
+            self.output_enable(True)
+        elif cmd == CMD_MAKE:
+            self.run_make("encrypted-flash" if self.encrypted else "flash")
+        elif cmd == CMD_APP_FLASH:
+            self.run_make("encrypted-app-flash" if self.encrypted else "app-flash")
+        elif cmd == CMD_OUTPUT_TOGGLE:
+            self.output_toggle()
+        elif cmd == CMD_TOGGLE_LOGGING:
+            self.toggle_logging()
+        elif cmd == CMD_ENTER_BOOT:
+            self.serial.setDTR(False)  # IO0=HIGH
+            self.serial.setRTS(True)   # EN=LOW, chip in reset
+            self.serial.setDTR(self.serial.dtr)  # usbser.sys workaround
+            time.sleep(1.3)  # timeouts taken from esptool.py, includes esp32r0 workaround. defaults: 0.1
+            self.serial.setDTR(True)   # IO0=LOW
+            self.serial.setRTS(False)  # EN=HIGH, chip out of reset
+            self.serial.setDTR(self.serial.dtr)  # usbser.sys workaround
+            time.sleep(0.45)  # timeouts taken from esptool.py, includes esp32r0 workaround. defaults: 0.05
+            self.serial.setDTR(False)  # IO0=HIGH, done
+        else:
+            raise RuntimeError("Bad command data %d" % (cmd))
+
 
 def main():
+
+    def _get_default_serial_port():
+        """
+        Same logic for detecting serial port as esptool.py and idf.py: reverse sort by name and choose the first port.
+        """
+
+        try:
+            ports = list(reversed(sorted(p.device for p in serial.tools.list_ports.comports())))
+            return ports[0]
+        except Exception:
+            return '/dev/ttyUSB0'
+
     parser = argparse.ArgumentParser("idf_monitor - a serial output monitor for esp-idf")
 
     parser.add_argument(
         '--port', '-p',
         help='Serial port device',
-        default=os.environ.get('ESPTOOL_PORT', '/dev/ttyUSB0')
+        default=os.environ.get('ESPTOOL_PORT', _get_default_serial_port())
     )
 
     parser.add_argument(
@@ -736,9 +929,22 @@ def main():
         help="Filtering string",
         default=DEFAULT_PRINT_FILTER)
 
+    parser.add_argument(
+        '--decode-coredumps',
+        choices=[COREDUMP_DECODE_INFO, COREDUMP_DECODE_DISABLE],
+        default=COREDUMP_DECODE_INFO,
+        help="Handling of core dumps found in serial output"
+    )
+
     args = parser.parse_args()
 
-    if args.port.startswith("/dev/tty."):
+    # GDB uses CreateFile to open COM port, which requires the COM name to be r'\\.\COMx' if the COM
+    # number is larger than 10
+    if os.name == 'nt' and args.port.startswith("COM"):
+        args.port = args.port.replace('COM', r'\\.\COM')
+        yellow_print("--- WARNING: GDB cannot open serial ports accessed as COMx")
+        yellow_print("--- Using %s instead..." % args.port)
+    elif args.port.startswith("/dev/tty."):
         args.port = args.port.replace("/dev/tty.", "/dev/cu.")
         yellow_print("--- WARNING: Serial ports accessed as /dev/tty.* will hang gdb if launched.")
         yellow_print("--- Using %s instead..." % args.port)
@@ -761,15 +967,23 @@ def main():
     except KeyError:
         pass  # not running a make jobserver
 
+    # Pass the actual used port to callee of idf_monitor (e.g. make) through `ESPPORT` environment
+    # variable
+    # To make sure the key as well as the value are str type, by the requirements of subprocess
+    espport_key = str("ESPPORT")
+    espport_val = str(args.port)
+    os.environ.update({espport_key: espport_val})
+
     monitor = Monitor(serial_instance, args.elf_file.name, args.print_filter, args.make, args.encrypted,
-                      args.toolchain_prefix, args.eol)
+                      args.toolchain_prefix, args.eol,
+                      args.decode_coredumps)
 
     yellow_print('--- idf_monitor on {p.name} {p.baudrate} ---'.format(
         p=serial_instance))
     yellow_print('--- Quit: {} | Menu: {} | Help: {} followed by {} ---'.format(
-        key_description(monitor.exit_key),
-        key_description(monitor.menu_key),
-        key_description(monitor.menu_key),
+        key_description(monitor.console_parser.exit_key),
+        key_description(monitor.console_parser.menu_key),
+        key_description(monitor.console_parser.menu_key),
         key_description(CTRL_H)))
     if args.print_filter != DEFAULT_PRINT_FILTER:
         yellow_print('--- Print filter: {} ---'.format(args.print_filter))
@@ -819,10 +1033,13 @@ if os.name == 'nt':
                     self.output.write(data.decode())
                 else:
                     self.output.write(data)
-            except IOError:
+            except (IOError, OSError):
                 # Windows 10 bug since the Fall Creators Update, sometimes writing to console randomly throws
                 # an exception (however, the character is still written to the screen)
-                # Ref https://github.com/espressif/esp-idf/issues/1136
+                # Ref https://github.com/espressif/esp-idf/issues/1163
+                #
+                # Also possible for Windows to throw an OSError error if the data is invalid for the console
+                # (garbage bytes, etc)
                 pass
 
         def write(self, data):
@@ -859,7 +1076,12 @@ if os.name == 'nt':
                     self.matched = b''
 
         def flush(self):
-            self.output.flush()
+            try:
+                self.output.flush()
+            except OSError:
+                # Account for Windows Console refusing to accept garbage bytes (serial noise, etc)
+                pass
+
 
 if __name__ == "__main__":
     main()

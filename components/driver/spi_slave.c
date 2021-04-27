@@ -13,13 +13,13 @@
 // limitations under the License.
 
 #include <string.h>
+#include "sdkconfig.h"
 #include <hal/spi_ll.h>
 #include <hal/spi_slave_hal.h>
 #include <soc/lldesc.h>
 #include "driver/spi_common_internal.h"
 #include "driver/spi_slave.h"
 #include "soc/spi_periph.h"
-#include "esp32/rom/ets_sys.h"
 #include "esp_types.h"
 #include "esp_attr.h"
 #include "esp_intr_alloc.h"
@@ -31,7 +31,6 @@
 #include "freertos/xtensa_api.h"
 #include "freertos/task.h"
 #include "soc/soc_memory_layout.h"
-#include "esp32/rom/lldesc.h"
 #include "driver/gpio.h"
 #include "esp_heap_caps.h"
 
@@ -41,8 +40,6 @@ static const char *SPI_TAG = "spi_slave";
         ESP_LOGE(SPI_TAG,"%s(%d): %s", __FUNCTION__, __LINE__, str); \
         return (ret_val); \
     }
-
-#define VALID_HOST(x) (x>SPI_HOST && x<=VSPI_HOST)
 
 #ifdef CONFIG_SPI_SLAVE_ISR_IN_IRAM
 #define SPI_SLAVE_ISR_ATTR IRAM_ATTR
@@ -76,6 +73,16 @@ static spi_slave_t *spihost[SOC_SPI_PERIPH_NUM];
 
 static void IRAM_ATTR spi_intr(void *arg);
 
+static inline bool is_valid_host(spi_host_device_t host)
+{
+#if CONFIG_IDF_TARGET_ESP32
+    return host >= SPI1_HOST && host <= SPI3_HOST;
+#elif CONFIG_IDF_TARGET_ESP32S2
+// SPI_HOST (SPI1_HOST) is not supported by the SPI Slave driver on ESP32-S2
+    return host >= SPI2_HOST && host <= SPI3_HOST;
+#endif
+}
+
 static inline bool bus_is_iomux(spi_slave_t *host)
 {
     return host->flags&SPICOMMON_BUSFLAG_IOMUX_PINS;
@@ -103,8 +110,12 @@ esp_err_t spi_slave_initialize(spi_host_device_t host, const spi_bus_config_t *b
     esp_err_t ret = ESP_OK;
     esp_err_t err;
     //We only support HSPI/VSPI, period.
-    SPI_CHECK(VALID_HOST(host), "invalid host", ESP_ERR_INVALID_ARG);
+    SPI_CHECK(is_valid_host(host), "invalid host", ESP_ERR_INVALID_ARG);
+#if defined(CONFIG_IDF_TARGET_ESP32)
     SPI_CHECK( dma_chan >= 0 && dma_chan <= 2, "invalid dma channel", ESP_ERR_INVALID_ARG );
+#elif defined(CONFIG_IDF_TARGET_ESP32S2)
+    SPI_CHECK( dma_chan == 0 || dma_chan == host, "invalid dma channel", ESP_ERR_INVALID_ARG );
+#endif
     SPI_CHECK((bus_config->intr_flags & (ESP_INTR_FLAG_HIGH|ESP_INTR_FLAG_EDGE|ESP_INTR_FLAG_INTRDISABLED))==0, "intr flag not allowed", ESP_ERR_INVALID_ARG);
 #ifndef CONFIG_SPI_SLAVE_ISR_IN_IRAM
     SPI_CHECK((bus_config->intr_flags & ESP_INTR_FLAG_IRAM)==0, "ESP_INTR_FLAG_IRAM should be disabled when CONFIG_SPI_SLAVE_ISR_IN_IRAM is not set.", ESP_ERR_INVALID_ARG);
@@ -215,13 +226,13 @@ cleanup:
     free(spihost[host]);
     spihost[host] = NULL;
     spicommon_periph_free(host);
-    spicommon_dma_chan_free(dma_chan);
+    if (dma_chan != 0) spicommon_dma_chan_free(dma_chan);
     return ret;
 }
 
 esp_err_t spi_slave_free(spi_host_device_t host)
 {
-    SPI_CHECK(VALID_HOST(host), "invalid host", ESP_ERR_INVALID_ARG);
+    SPI_CHECK(is_valid_host(host), "invalid host", ESP_ERR_INVALID_ARG);
     SPI_CHECK(spihost[host], "host not slave", ESP_ERR_INVALID_ARG);
     if (spihost[host]->trans_queue) vQueueDelete(spihost[host]->trans_queue);
     if (spihost[host]->ret_queue) vQueueDelete(spihost[host]->ret_queue);
@@ -245,7 +256,7 @@ esp_err_t spi_slave_free(spi_host_device_t host)
 esp_err_t SPI_SLAVE_ATTR spi_slave_queue_trans(spi_host_device_t host, const spi_slave_transaction_t *trans_desc, TickType_t ticks_to_wait)
 {
     BaseType_t r;
-    SPI_CHECK(VALID_HOST(host), "invalid host", ESP_ERR_INVALID_ARG);
+    SPI_CHECK(is_valid_host(host), "invalid host", ESP_ERR_INVALID_ARG);
     SPI_CHECK(spihost[host], "host not slave", ESP_ERR_INVALID_ARG);
     SPI_CHECK(spihost[host]->dma_chan == 0 || trans_desc->tx_buffer==NULL || esp_ptr_dma_capable(trans_desc->tx_buffer),
 			"txdata not in DMA-capable memory", ESP_ERR_INVALID_ARG);
@@ -265,7 +276,7 @@ esp_err_t SPI_SLAVE_ATTR spi_slave_queue_trans(spi_host_device_t host, const spi
 esp_err_t SPI_SLAVE_ATTR spi_slave_get_trans_result(spi_host_device_t host, spi_slave_transaction_t **trans_desc, TickType_t ticks_to_wait)
 {
     BaseType_t r;
-    SPI_CHECK(VALID_HOST(host), "invalid host", ESP_ERR_INVALID_ARG);
+    SPI_CHECK(is_valid_host(host), "invalid host", ESP_ERR_INVALID_ARG);
     SPI_CHECK(spihost[host], "host not slave", ESP_ERR_INVALID_ARG);
     r = xQueueReceive(spihost[host]->ret_queue, (void *)trans_desc, ticks_to_wait);
     if (!r) return ESP_ERR_TIMEOUT;
@@ -393,5 +404,4 @@ static void SPI_SLAVE_ISR_ATTR spi_intr(void *arg)
     }
     if (do_yield) portYIELD_FROM_ISR();
 }
-
 

@@ -80,19 +80,19 @@ void esp_pm_impl_switch_mode(pm_mode_t mode, pm_mode_switch_t lock_or_unlock, pm
 /**
  * @brief Call once at startup to initialize pm implementation
  */
-void esp_pm_impl_init();
+void esp_pm_impl_init(void);
 
 /**
  * @brief Hook function for the idle task
  * Must be called from the IDLE task on each CPU before entering waiti state.
  */
-void esp_pm_impl_idle_hook();
+void esp_pm_impl_idle_hook(void);
 
 /**
  * @brief Hook function for the interrupt dispatcher
  * Must be called soon after entering the ISR
  */
-void esp_pm_impl_isr_hook();
+void esp_pm_impl_isr_hook(void);
 
 /**
  * @brief Dump the information about time spent in each of the pm modes.
@@ -107,14 +107,46 @@ void esp_pm_impl_dump_stats(FILE* out);
 /**
  * @brief Hook function implementing `waiti` instruction, should be invoked from idle task context
  */
-void esp_pm_impl_waiti();
+void esp_pm_impl_waiti(void);
+
+#if CONFIG_IDF_TARGET_ESP32S2
+/**
+ * @brief Callback function type for peripherals to skip light sleep.
+ *
+ */
+typedef bool (* skip_light_sleep_cb_t)(void);
+
+/**
+  * @brief  Register peripherals skip light sleep callback
+  *
+  * This function allows you to register a callback that gets the result
+  * that if light sleep should be skipped by peripherals.
+  * @param cb function to get the result 
+  * @return
+  *   - ESP_OK on success
+  *   - ESP_ERR_NO_MEM if no more callback slots are available
+  */
+esp_err_t esp_pm_register_skip_light_sleep_callback(skip_light_sleep_cb_t cb);
+
+/**
+  * @brief  Unregisterperipherals skip light sleep callback 
+  *
+  * This function allows you to unregister a callback which was previously
+  * registered using esp_register_skip_light_sleep_callback.
+  * @param cb function to get the result 
+  * @return
+  *   - ESP_OK on success
+  *   - ESP_ERR_INVALID_STATE if the given callback hasn't been registered before
+  */
+esp_err_t esp_pm_unregister_skip_light_sleep_callback(skip_light_sleep_cb_t cb);
+#endif
 
 #ifdef CONFIG_PM_PROFILING
 #define WITH_PROFILING
 #endif
 
 #ifdef WITH_PROFILING
-static inline pm_time_t IRAM_ATTR pm_get_time()
+static inline pm_time_t IRAM_ATTR pm_get_time(void)
 {
     return esp_timer_get_time();
 }

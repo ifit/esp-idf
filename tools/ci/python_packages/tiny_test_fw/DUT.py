@@ -751,7 +751,9 @@ class SerialDUT(BaseDUT):
     def __init__(self, name, port, log_file, app, **kwargs):
         self.port_inst = None
         self.serial_configs = self.DEFAULT_UART_CONFIG.copy()
-        self.serial_configs.update(kwargs)
+        for uart_config_name in self.serial_configs.keys():
+            if uart_config_name in kwargs:
+                self.serial_configs[uart_config_name] = kwargs[uart_config_name]
         super(SerialDUT, self).__init__(name, port, log_file, app, **kwargs)
 
     def _format_data(self, data):
@@ -766,7 +768,7 @@ class SerialDUT(BaseDUT):
         return formatted_data
 
     def _port_open(self):
-        self.port_inst = serial.Serial(self.port, **self.serial_configs)
+        self.port_inst = serial.serial_for_url(self.port, **self.serial_configs)
 
     def _port_close(self):
         self.port_inst.close()

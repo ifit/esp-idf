@@ -157,18 +157,32 @@
    --------------------------------
 */
 /**
- * IP_REASSEMBLY==1: Reassemble incoming fragmented IP packets. Note that
+ * IP_REASSEMBLY==1: Reassemble incoming fragmented IP4 packets. Note that
  * this option does not affect outgoing packet sizes, which can be controlled
  * via IP_FRAG.
  */
-#define IP_REASSEMBLY                   CONFIG_LWIP_IP_REASSEMBLY
+#define IP_REASSEMBLY                   CONFIG_LWIP_IP4_REASSEMBLY
 
 /**
- * IP_FRAG==1: Fragment outgoing IP packets if their size exceeds MTU. Note
+ * LWIP_IPV6_REASS==1: reassemble incoming IP6 packets that fragmented. Note that
+ * this option does not affect outgoing packet sizes, which can be controlled
+ * via LWIP_IPV6_FRAG.
+ */
+#define LWIP_IPV6_REASS                 CONFIG_LWIP_IP6_REASSEMBLY
+
+/**
+ * IP_FRAG==1: Fragment outgoing IP4 packets if their size exceeds MTU. Note
  * that this option does not affect incoming packet sizes, which can be
  * controlled via IP_REASSEMBLY.
  */
-#define IP_FRAG                         CONFIG_LWIP_IP_FRAG
+#define IP_FRAG                         CONFIG_LWIP_IP4_FRAG
+
+/**
+ * LWIP_IPV6_FRAG==1: Fragment outgoing IP6 packets if their size exceeds MTU. Note
+ * that this option does not affect incoming packet sizes, which can be
+ * controlled via IP_REASSEMBLY.
+ */
+#define LWIP_IPV6_FRAG                  CONFIG_LWIP_IP6_FRAG
 
 /**
  * IP_REASS_MAXAGE: Maximum time (in multiples of IP_TMR_INTERVAL - so seconds, normally)
@@ -184,6 +198,20 @@
  * packets even if the maximum amount of fragments is enqueued for reassembly!
  */
 #define IP_REASS_MAX_PBUFS              10
+
+/**
+ * IP_FORWARD==1: Enables the ability to forward IP packets across network
+ * interfaces. If you are going to run lwIP on a device with only one network
+ * interface, define this to 0.
+ */
+#define IP_FORWARD                      CONFIG_LWIP_IP_FORWARD
+
+/**
+ * IP_NAPT==1: Enables IPv4 Network Address and Port Translation.
+ * Note that both CONFIG_LWIP_IP_FORWARD and CONFIG_LWIP_L2_TO_L3_COPY options
+ * need to be enabled in system configuration for the NAPT to work on ESP platform
+ */
+#define IP_NAPT                         CONFIG_LWIP_IPV4_NAPT
 
 /*
    ----------------------------------
@@ -231,7 +259,7 @@
 
 #define LWIP_DHCP_IP_ADDR_RESTORE()     dhcp_ip_addr_restore(netif)
 #define LWIP_DHCP_IP_ADDR_STORE()       dhcp_ip_addr_store(netif)
-#define LWIP_DHCP_IP_ADDR_ERASE()       dhcp_ip_addr_erase(esp_netif[tcpip_if])
+#define LWIP_DHCP_IP_ADDR_ERASE(esp_netif)       dhcp_ip_addr_erase(esp_netif)
 
 #endif
 
@@ -312,6 +340,11 @@
 #define TCP_QUEUE_OOSEQ                 CONFIG_LWIP_TCP_QUEUE_OOSEQ
 
 /**
+ * LWIP_TCP_SACK_OUT==1: TCP will support sending selective acknowledgements (SACKs).
+ */
+#define LWIP_TCP_SACK_OUT               CONFIG_LWIP_TCP_SACK_OUT
+
+/**
  * ESP_TCP_KEEP_CONNECTION_WHEN_IP_CHANGES==1: Keep TCP connection when IP changed
  * scenario happens: 192.168.0.2 -> 0.0.0.0 -> 192.168.0.2 or 192.168.0.2 -> 0.0.0.0
  */
@@ -324,6 +357,11 @@
  *         for the event. This is the default.
 */
 #define TCP_MSS                         CONFIG_LWIP_TCP_MSS
+
+/**
+ * TCP_TMR_INTERVAL: TCP timer interval
+ */
+#define TCP_TMR_INTERVAL                CONFIG_LWIP_TCP_TMR_INTERVAL
 
 /**
  * TCP_MSL: The maximum segment lifetime in milliseconds
@@ -374,6 +412,23 @@
 #ifdef CONFIG_LWIP_WND_SCALE
 #define LWIP_WND_SCALE                  1
 #define TCP_RCV_SCALE                   CONFIG_LWIP_TCP_RCV_SCALE
+#endif
+
+/**
+ * LWIP_TCP_RTO_TIME: TCP rto time.
+ * Default is 3 second.
+ */
+#define LWIP_TCP_RTO_TIME             CONFIG_LWIP_TCP_RTO_TIME
+
+/**
+ * Set TCP hook for Initial Sequence Number (ISN)
+ */
+#ifdef CONFIG_LWIP_TCP_ISN_HOOK
+#include <lwip/arch.h>
+struct ip_addr;
+u32_t lwip_hook_tcp_isn(const struct ip_addr *local_ip, u16_t local_port,
+                        const struct ip_addr *remote_ip, u16_t remote_port);
+#define LWIP_HOOK_TCP_ISN               lwip_hook_tcp_isn
 #endif
 
 /*
@@ -539,6 +594,11 @@
 #define LWIP_TCP_KEEPALIVE              1
 
 /**
+ * LWIP_SO_LINGER==1: Enable SO_LINGER processing.
+ */
+#define LWIP_SO_LINGER                  CONFIG_LWIP_SO_LINGER
+
+/**
  * LWIP_SO_RCVBUF==1: Enable SO_RCVBUF processing.
  */
 #define LWIP_SO_RCVBUF                  CONFIG_LWIP_SO_RCVBUF
@@ -549,12 +609,24 @@
  */
 #define SO_REUSE                        CONFIG_LWIP_SO_REUSE
 
+
+/**
+ * LWIP_DNS_SUPPORT_MDNS_QUERIES==1: Enable mDNS queries in hostname resolution.
+ * This option is set via menuconfig.
+ */
+#define LWIP_DNS_SUPPORT_MDNS_QUERIES   CONFIG_LWIP_DNS_SUPPORT_MDNS_QUERIES
 /**
  * SO_REUSE_RXTOALL==1: Pass a copy of incoming broadcast/multicast packets
  * to all local matches if SO_REUSEADDR is turned on.
  * WARNING: Adds a memcpy for every packet if passing to more than one pcb!
  */
 #define SO_REUSE_RXTOALL                CONFIG_LWIP_SO_REUSE_RXTOALL
+
+/**
+ * LWIP_NETBUF_RECVINFO==1: Enable IP_PKTINFO option.
+ * This option is set via menuconfig.
+ */
+#define LWIP_NETBUF_RECVINFO            CONFIG_LWIP_NETBUF_RECVINFO
 
 /*
    ----------------------------------------
@@ -588,6 +660,14 @@
 #define PPP_SUPPORT                     CONFIG_LWIP_PPP_SUPPORT
 
 #if PPP_SUPPORT
+
+/**
+ * PPP_IPV6_SUPPORT == 1: Enable IPV6 support for local link
+ * between modem and lwIP stack.
+ * Some modems do not support IPV6 addressing in local link and
+ * the only option available is to disable IPV6 address negotiation.
+ */
+#define PPP_IPV6_SUPPORT				CONFIG_LWIP_PPP_ENABLE_IPV6
 
 /**
  * PPP_NOTIFY_PHASE==1: Support PPP notify phase.
@@ -631,6 +711,8 @@
 
 #if PPP_DEBUG_ON
 #define PPP_DEBUG                       LWIP_DBG_ON
+#define PRINTPKT_SUPPORT                1
+#define PPP_PROTOCOLNAME                1
 #else
 #define PPP_DEBUG                       LWIP_DBG_OFF
 #endif
@@ -652,6 +734,16 @@
  * LWIP_IPV6==1: Enable IPv6
  */
 #define LWIP_IPV6                       1
+
+/**
+ * MEMP_NUM_ND6_QUEUE: Max number of IPv6 packets to queue during MAC resolution.
+ */
+#define MEMP_NUM_ND6_QUEUE              CONFIG_LWIP_IPV6_MEMP_NUM_ND6_QUEUE
+
+/**
+ * LWIP_ND6_NUM_NEIGHBORS: Number of entries in IPv6 neighbor cache
+ */
+#define LWIP_ND6_NUM_NEIGHBORS          CONFIG_LWIP_IPV6_ND6_NUM_NEIGHBORS
 
 /*
    ---------------------------------------
@@ -718,6 +810,11 @@
  * TCPIP_DEBUG: Enable debugging in tcpip.c.
  */
 #define TCPIP_DEBUG                     LWIP_DBG_OFF
+
+/**
+ * TCP_OOSEQ_DEBUG: Enable debugging in tcpin.c for OOSEQ.
+ */
+#define TCP_OOSEQ_DEBUG                 LWIP_DBG_OFF
 
 /**
  * ETHARP_TRUST_IP_MAC==1: Incoming IP packets cause the ARP table to be
@@ -830,7 +927,10 @@
  */
 #define SNTP_SERVER_DNS            1
 
-#define SNTP_UPDATE_DELAY              CONFIG_LWIP_SNTP_UPDATE_DELAY
+// It disables a check of SNTP_UPDATE_DELAY it is done in sntp_set_sync_interval
+#define SNTP_SUPPRESS_DELAY_CHECK
+
+#define SNTP_UPDATE_DELAY              (sntp_get_sync_interval())
 
 #define SNTP_SET_SYSTEM_TIME_US(sec, us)  \
     do { \

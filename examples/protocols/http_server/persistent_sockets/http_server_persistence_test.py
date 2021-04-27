@@ -35,13 +35,14 @@ from idf_http_server_test import adder as client
 @ttfw_idf.idf_example_test(env_tag="Example_WIFI")
 def test_examples_protocol_http_server_persistence(env, extra_data):
     # Acquire DUT
-    dut1 = env.get_dut("http_server", "examples/protocols/http_server/persistent_sockets")
+    dut1 = env.get_dut("http_server", "examples/protocols/http_server/persistent_sockets",
+                       dut_class=ttfw_idf.ESP32DUT)
 
     # Get binary file
     binary_file = os.path.join(dut1.app.binary_path, "persistent_sockets.bin")
     bin_size = os.path.getsize(binary_file)
     ttfw_idf.log_performance("http_server_bin_size", "{}KB".format(bin_size // 1024))
-    ttfw_idf.check_performance("http_server_bin_size", bin_size // 1024)
+    ttfw_idf.check_performance("http_server_bin_size", bin_size // 1024, dut1.TARGET)
 
     # Upload binary and start testing
     Utility.console_log("Starting http_server persistance test app")

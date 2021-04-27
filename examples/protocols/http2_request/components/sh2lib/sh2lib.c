@@ -39,7 +39,7 @@ static ssize_t callback_send_inner(struct sh2lib_handle *hd, const uint8_t *data
 {
     int rv = esp_tls_conn_write(hd->http2_tls, data, length);
     if (rv <= 0) {
-        if (rv == MBEDTLS_ERR_SSL_WANT_READ || rv == MBEDTLS_ERR_SSL_WANT_WRITE) {
+        if (rv == ESP_TLS_ERR_SSL_WANT_READ || rv == ESP_TLS_ERR_SSL_WANT_WRITE) {
             rv = NGHTTP2_ERR_WOULDBLOCK;
         } else {
             rv = NGHTTP2_ERR_CALLBACK_FAILURE;
@@ -88,7 +88,7 @@ static ssize_t callback_recv(nghttp2_session *session, uint8_t *buf,
     int rv;
     rv = esp_tls_conn_read(hd->http2_tls, (char *)buf, (int)length);
     if (rv < 0) {
-        if (rv == MBEDTLS_ERR_SSL_WANT_READ || rv == MBEDTLS_ERR_SSL_WANT_WRITE) {
+        if (rv == ESP_TLS_ERR_SSL_WANT_READ || rv == ESP_TLS_ERR_SSL_WANT_WRITE) {
             rv = NGHTTP2_ERR_WOULDBLOCK;
         } else {
             rv = NGHTTP2_ERR_CALLBACK_FAILURE;
@@ -242,7 +242,8 @@ int sh2lib_connect(struct sh2lib_handle *hd, const char *uri)
     esp_tls_cfg_t tls_cfg = {
         .alpn_protos = proto,
         .non_block = true,
-    };    
+        .timeout_ms = 10 * 1000,
+    };
     if ((hd->http2_tls = esp_tls_conn_http_new(uri, &tls_cfg)) == NULL) {
         ESP_LOGE(TAG, "[sh2-connect] esp-tls connection failed");
         goto error;
@@ -366,4 +367,3 @@ int sh2lib_do_put(struct sh2lib_handle *hd, const char *path,
                              };
     return sh2lib_do_putpost_with_nv(hd, nva, sizeof(nva) / sizeof(nva[0]), send_cb, recv_cb);
 }
-

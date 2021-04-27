@@ -910,6 +910,34 @@ void BTM_BleConfigLocalIcon(uint16_t icon)
     BTM_TRACE_ERROR("%s\n", __func__);
 #endif
 }
+
+/*******************************************************************************
+**
+** Function         BTM_BleConfigConnParams
+**
+** Description      This function is called to set the connection parameters
+**
+** Parameters       int_min:  minimum connection interval
+**                  int_max:  maximum connection interval
+**                  latency:  slave latency
+**                  timeout:  supervision timeout
+**
+*******************************************************************************/
+void BTM_BleConfigConnParams(uint16_t int_min, uint16_t int_max, uint16_t latency, uint16_t timeout)
+{
+#if (defined(GAP_INCLUDED) && GAP_INCLUDED == TRUE && GATTS_INCLUDED == TRUE)
+    tGAP_BLE_ATTR_VALUE p_value;
+
+    p_value.conn_param.int_min = int_min;
+    p_value.conn_param.int_max = int_max;
+    p_value.conn_param.latency = latency;
+    p_value.conn_param.sp_tout = timeout;
+    GAP_BleAttrDBUpdate(GATT_UUID_GAP_PREF_CONN_PARAM, &p_value);
+#else
+    BTM_TRACE_ERROR("%s\n", __func__);
+#endif
+}
+
 /*******************************************************************************
 **
 ** Function          BTM_BleMaxMultiAdvInstanceCount
@@ -2011,7 +2039,7 @@ UINT8 *BTM_CheckAdvData( UINT8 *p_adv, UINT8 type, UINT8 *p_length)
 **                     BTM_BLE_GENRAL_DISCOVERABLE
 **
 *******************************************************************************/
-UINT16 BTM_BleReadDiscoverability()
+UINT16 BTM_BleReadDiscoverability(void)
 {
     BTM_TRACE_API("%s\n", __FUNCTION__);
 
@@ -2028,7 +2056,7 @@ UINT16 BTM_BleReadDiscoverability()
 ** Returns          BTM_BLE_NON_CONNECTABLE or BTM_BLE_CONNECTABLE
 **
 *******************************************************************************/
-UINT16 BTM_BleReadConnectability()
+UINT16 BTM_BleReadConnectability(void)
 {
     BTM_TRACE_API ("%s\n", __FUNCTION__);
 
@@ -2959,7 +2987,7 @@ void btm_ble_cache_adv_data(BD_ADDR bda, tBTM_INQ_RESULTS *p_cur, UINT8 data_len
 {
     tBTM_BLE_INQ_CB     *p_le_inq_cb = &btm_cb.ble_ctr_cb.inq_var;
     UINT8 *p_cache;
-    UINT8 length;
+    //UINT8 length;
 
     /* cache adv report/scan response data */
     if (evt_type != BTM_BLE_SCAN_RSP_EVT) {
@@ -2980,17 +3008,9 @@ void btm_ble_cache_adv_data(BD_ADDR bda, tBTM_INQ_RESULTS *p_cur, UINT8 data_len
 
     if (data_len > 0) {
         p_cache = &p_le_inq_cb->adv_data_cache[p_le_inq_cb->adv_len];
-        STREAM_TO_UINT8(length, p);
-        while ( length && ((p_le_inq_cb->adv_len + length + 1) <= BTM_BLE_CACHE_ADV_DATA_MAX)) {
-            /* copy from the length byte & data into cache */
-            memcpy(p_cache, p - 1, length + 1);
-            /* advance the cache pointer past data */
-            p_cache += length + 1;
-            /* increment cache length */
-            p_le_inq_cb->adv_len += length + 1;
-            /* skip the length of data */
-            p += length;
-            STREAM_TO_UINT8(length, p);
+        if((data_len + p_le_inq_cb->adv_len) <= BTM_BLE_CACHE_ADV_DATA_MAX) {
+            memcpy(p_cache, p, data_len);
+            p_le_inq_cb->adv_len += data_len;
         }
     }
 
@@ -4423,5 +4443,28 @@ BOOLEAN btm_ble_topology_check(tBTM_BLE_STATE_MASK request_state_mask)
     return rt;
 }
 
+/*******************************************************************************
+ **
+ ** Function         BTM_Ble_Authorization
+ **
+ ** Description      This function is used to authorize a specified device
+ **
+ ** Returns          TRUE or FALSE
+ **
+ *******************************************************************************/
+BOOLEAN BTM_Ble_Authorization(BD_ADDR bd_addr, BOOLEAN authorize)
+{
+    if (bd_addr == NULL) {
+        BTM_TRACE_ERROR("bd_addr is NULL");
+        return FALSE;
+    }
+
+    if (btm_sec_dev_authorization(bd_addr, authorize)) {
+        return TRUE;
+    }
+
+    BTM_TRACE_ERROR("Authorization fail");
+    return FALSE;
+}
 
 #endif  /* BLE_INCLUDED */

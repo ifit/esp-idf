@@ -5,7 +5,9 @@ Build System
 
 This document explains the implementation of the ESP-IDF build system and the concept of "components". Read this document if you want to know how to organise and build a new ESP-IDF project or component.
 
-.. note:: This document describes the CMake-based build system, which is the default since ESP-IDF V4.0. ESP-IDF also supports a :doc:`legacy build system based on GNU Make <build-system-legacy>`, which was the default before ESP-IDF V4.0.
+.. only:: esp32
+
+   .. note:: This document describes the CMake-based build system, which is the default since ESP-IDF V4.0. ESP-IDF also supports a :doc:`legacy build system based on GNU Make <build-system-legacy>`, which was the default before ESP-IDF V4.0.
 
 
 Overview
@@ -14,7 +16,7 @@ Overview
 An ESP-IDF project can be seen as an amalgamation of a number of components.
 For example, for a webserver that shows the current humidity, there could be:
 
-- The ESP32 base libraries (libc, ROM bindings, etc)
+- The ESP-IDF base libraries (libc, ROM bindings, etc)
 - The WiFi drivers
 - A TCP/IP stack
 - The FreeRTOS operating system
@@ -41,7 +43,7 @@ Concepts
 
 - "components" are modular pieces of standalone code which are compiled into static libraries (.a files) and linked into an app. Some are provided by ESP-IDF itself, others may be sourced from other places.
 
-- "Target" is the hardware for which an application is built. At the moment, ESP-IDF supports only one target, ``esp32``.
+- "Target" is the hardware for which an application is built. At the moment, ESP-IDF supports ``esp32`` and ``esp32s2`` targets.
 
 Some things are not part of the project:
 
@@ -61,14 +63,15 @@ The ``idf.py`` command line tool provides a front-end for easily managing your p
 
 - CMake_, which configures the project to be built
 - A command line build tool (either Ninja_ build or `GNU Make`)
-- `esptool.py`_ for flashing ESP32.
+- `esptool.py`_ for flashing the target.
 
 The :ref:`getting started guide <get-started-configure>` contains a brief introduction to how to set up ``idf.py`` to configure, build, and flash projects.
 
 ``idf.py`` should be run in an ESP-IDF "project" directory, ie one containing a ``CMakeLists.txt`` file. Older style projects with a Makefile will not work with ``idf.py``.
 
-Type ``idf.py --help`` for a full list of commands. Here are a summary of the most useful ones:
+Type ``idf.py --help`` for a list of commands. Here are a summary of the most useful ones:
 
+- ``idf.py set-target <target>`` sets the target (chip) for which the project is built. See :ref:`selecting-idf-target`.
 - ``idf.py menuconfig`` runs the "menuconfig" tool to configure the project.
 - ``idf.py build`` will build the project found in the current directory. This can involve multiple steps:
 
@@ -79,10 +82,12 @@ Type ``idf.py --help`` for a full list of commands. Here are a summary of the mo
   Building is incremental so if no source files or configuration has changed since the last build, nothing will be done.
 - ``idf.py clean`` will "clean" the project by deleting build output files from the build directory, forcing a "full rebuild" the next time the project is built. Cleaning doesn't delete CMake configuration output and some other files.
 - ``idf.py fullclean`` will delete the entire "build" directory contents. This includes all CMake configuration output. The next time the project is built, CMake will configure it from scratch. Note that this option recursively deletes *all* files in the build directory, so use with care. Project configuration is not deleted.
-- ``idf.py flash`` will automatically build the project if necessary, and then flash it to an ESP32. The ``-p`` and ``-b`` options can be used to set serial port name and flasher baud rate, respectively.
-- ``idf.py monitor`` will display serial output from the ESP32. The ``-p`` option can be used to set the serial port name. Type ``Ctrl-]`` to exit the monitor. See :doc:`tools/idf-monitor` for more details about using the monitor.
+- ``idf.py flash`` will automatically build the project if necessary, and then flash it to the target. The ``-p`` and ``-b`` options can be used to set serial port name and flasher baud rate, respectively.
+- ``idf.py monitor`` will display serial output from the target. The ``-p`` option can be used to set the serial port name. Type ``Ctrl-]`` to exit the monitor. See :doc:`tools/idf-monitor` for more details about using the monitor.
 
-Multiple ``idf.py`` commands can be combined into one. For example, ``idf.py -p COM4 clean flash monitor`` will clean the source tree, then build the project and flash it to the ESP32 before running the serial monitor.
+Multiple ``idf.py`` commands can be combined into one. For example, ``idf.py -p COM4 clean flash monitor`` will clean the source tree, then build the project and flash it to the target before running the serial monitor.
+
+For commands that are not known to ``idf.py`` an attempt to execute them as a build system target will be made.
 
 .. note:: The environment variables ``ESPPORT`` and ``ESPBAUD`` can be used to set default values for the ``-p`` and ``-b`` options, respectively. Providing these options on the command line overrides the default.
 
@@ -92,24 +97,26 @@ Advanced Commands
 ^^^^^^^^^^^^^^^^^
 
 - ``idf.py app``, ``idf.py bootloader``, ``idf.py partition_table`` can be used to build only the app, bootloader, or partition table from the project as applicable.
-- There are matching commands ``idf.py app-flash``, etc. to flash only that single part of the project to the ESP32.
-- ``idf.py -p PORT erase_flash`` will use esptool.py to erase the ESP32's entire flash chip.
+- There are matching commands ``idf.py app-flash``, etc. to flash only that single part of the project to the target.
+- ``idf.py -p PORT erase_flash`` will use esptool.py to erase the target's entire flash chip.
 - ``idf.py size`` prints some size information about the app. ``size-components`` and ``size-files`` are similar commands which print more detailed per-component or per-source-file information, respectively. If you define variable ``-DOUTPUT_JSON=1`` when running CMake (or ``idf.py``), the output will be formatted as JSON not as human readable text.
 - ``idf.py reconfigure`` re-runs CMake_ even if it doesn't seem to need re-running. This isn't necessary during normal usage, but can be useful after adding/removing files from the source tree, or when modifying CMake cache variables. For example, ``idf.py -DNAME='VALUE' reconfigure`` can be used to set variable ``NAME`` in CMake cache to value ``VALUE``.
+- ``idf.py python-clean`` deletes generated Python byte code from the IDF directory which may cause issues when switching between IDF and Python versions. It is advised to run this target after switching versions of Python.
 
 The order of multiple ``idf.py`` commands on the same invocation is not important, they will automatically be executed in the correct order for everything to take effect (ie building before flashing, erasing before flashing, etc.).
 
 idf.py options
 ^^^^^^^^^^^^^^
-
-To list all available options, run ``idf.py --help``.
+To list all available root level options, run ``idf.py --help``. To list options that are specific for a subcommand, run ``idf.py <command> --help``, for example ``idf.py monitor --help``.
+Here is a list of some useful options:
 
 - ``-C <dir>`` allows overriding the project directory from the default current working directory.
 - ``-B <dir>`` allows overriding the build directory from the default ``build`` subdirectory of the project directory.
 - ``--ccache`` flag can be used to enable CCache_ when compiling source files, if the CCache_ tool is installed. This can dramatically reduce some build times.
 
-Note that some older versions of CCache may exhibit bugs on some platforms, so if files are not rebuilt as expected then try disabling ccache and build again. CCache can be enabled by default by setting the ``IDF_ENABLE_CCACHE`` environment variable to a non-zero value.
+Note that some older versions of CCache may exhibit bugs on some platforms, so if files are not rebuilt as expected then try disabling ccache and build again. CCache can be enabled by default by setting the ``IDF_CCACHE_ENABLE`` environment variable to a non-zero value.
 - ``-v`` flag causes both ``idf.py`` and the build system to produce verbose build output. This can be useful for debugging build problems.
+- ``--cmake-warn-uninitialized`` (or ``-w``) will cause CMake to print uninitialized variable warnings inside the project directory (not for directories not found inside the project directory). This only controls CMake variable warnings inside CMake itself, not other types of build warnings. This option can also be set permanently by setting the ``IDF_CMAKE_WARN_UNINITIALIZED`` environment variable to a non-zero value.
 
 Using CMake Directly
 --------------------
@@ -185,7 +192,25 @@ If using CMake directly, running ``cmake -D PYTHON=python3 ...`` will cause CMak
 
 If using an IDE with CMake, setting the ``PYTHON`` value as a CMake cache override in the IDE UI will override the default Python interpreter.
 
-To manage the Python version more generally via the command line, check out the tools pyenv_ or virtualenv_. These let you change the default python version.
+To manage the Python version more generally via the command line, check out the tools pyenv_ or virtualenv_. These let you change the default Python version.
+
+Possible issues
+^^^^^^^^^^^^^^^
+
+The user of ``idf.py`` may sometimes experience ``ImportError`` described below.
+
+.. code-block:: none
+
+    Traceback (most recent call last):
+      File "/Users/user_name/e/esp-idf/tools/kconfig_new/confgen.py", line 27, in <module>
+        import kconfiglib
+    ImportError: bad magic number in 'kconfiglib': b'\x03\xf3\r\n'
+
+The exception is often caused by ``.pyc`` files generated by different Python versions. To solve the issue run the following command:
+
+.. code-block:: bash
+
+    idf.py python-clean
 
 .. _example-project-structure:
 
@@ -367,7 +392,8 @@ from the component CMakeLists.txt:
 - ``IDF_TARGET``: Name of the target for which the project is being built.
 - ``PROJECT_VER``: Project version.
 
-  * If ``PROJECT_VER`` variable is set in project CMakeLists.txt file, its value will be used.
+  * If :ref:`CONFIG_APP_PROJECT_VER_FROM_CONFIG` option is set, the value of :ref:`CONFIG_APP_PROJECT_VER` will be used.
+  * Else, if ``PROJECT_VER`` variable is set in project CMakeLists.txt file, its value will be used.
   * Else, if the ``PROJECT_DIR/version.txt`` exists, its contents will be used as ``PROJECT_VER``.
   * Else, if the project is located inside a Git repository, the output of git describe will be used.
   * Otherwise, ``PROJECT_VER`` will be "1".
@@ -597,68 +623,14 @@ The order of components in the ``BUILD_COMPONENTS`` variable determines other or
 - Order that :ref:`project_include.cmake` files are included into the project.
 - Order that the list of header paths is generated for compilation (via ``-I`` argument). (Note that for a given component's source files, only that component's dependency's header paths are passed to the compiler.)
 
-Build Process Internals
-=======================
-
-For full details about CMake_ and CMake commands, see the `CMake v3.5 documentation`_.
-
-project.cmake contents
-----------------------
-
-When included from a project CMakeLists file, the ``project.cmake`` file defines some utility modules and global variables and then sets ``IDF_PATH`` if it was not set in the system environment.
-
-It also defines an overridden custom version of the built-in CMake_ ``project`` function. This function is overridden to add all of the ESP-IDF specific project functionality.
-
-project function
-----------------
-
-The custom ``project()`` function performs the following steps:
-
-- Determines the target (set by ``IDF_TARGET`` environment variable) and saves the target in CMake cache. If the target set in the environment does not match the one in cache, exits with an error.
-- Evaluates component dependencies and builds the ``BUILD_COMPONENTS`` list of components to include in the build (see :ref:`above<component-requirements-implementation>`).
-- Finds all components in the project (searching ``COMPONENT_DIRS`` and filtering by ``COMPONENTS`` if this is set).
-- Loads the project configuration from the ``sdkconfig`` file and generates a ``sdkconfig.cmake`` file and a ``sdkconfig.h`` header. These define configuration values in CMake and C/C++, respectively. If the project configuration changes, cmake will automatically be re-run to re-generate these files and re-configure the project.
-- Sets the `CMAKE_TOOLCHAIN_FILE`_ variable to the correct toolchain file, depending on the target.
-- Declares the actual cmake-level project by calling the `CMake project function <cmake project_>`_.
-- Loads the git version. This includes some magic which will automatically re-run CMake if a new revision is checked out in git. See `File Globbing & Incremental Builds`_.
-- Includes :ref:`project_include.cmake` files from any components which have them.
-- Adds each component to the build. Each component CMakeLists file calls ``idf_component_register``, calls the CMake `add_library <cmake add_library_>`_ function to add a library and then adds source files, compile options, etc.
-- Adds the final app executable to the build.
-- Goes back and adds inter-component dependencies between components (ie adding the public header directories of each component to each other component).
-
-Browse the :idf_file:`/tools/cmake/project.cmake` file and supporting functions in :idf_file:`/tools/cmake/idf_functions.cmake` for more details.
-
-Debugging CMake
----------------
-
-Some tips for debugging the ESP-IDF CMake-based build system:
-
-- When CMake runs, it prints quite a lot of diagnostic information including lists of components and component paths.
-- Running ``cmake -DDEBUG=1`` will produce more verbose diagnostic output from the IDF build system.
-- Running ``cmake`` with the ``--trace`` or ``--trace-expand`` options will give a lot of information about control flow. See the `cmake command line documentation`_.
-
-When included from a project CMakeLists file, the ``project.cmake`` file defines some utility modules and global variables and then sets ``IDF_PATH`` if it was not set in the system environment.
-
-It also defines an overridden custom version of the built-in CMake_ ``project`` function. This function is overridden to add all of the ESP-IDF specific project functionality.
-
-.. _warn-undefined-variables:
-
-Warning On Undefined Variables
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-By default, ``idf.py`` passes the ``--warn-uninitialized`` flag to CMake_ so it will print a warning if an undefined variable is referenced in the build. This can be very useful to find buggy CMake files.
-
-If you don't want this behaviour, it can be disabled by passing ``--no-warnings`` to ``idf.py``.
-
-Browse the :idf_file:`/tools/cmake/project.cmake` file and supporting functions in :idf_file:`/tools/cmake/idf_functions.cmake` for more details.
 
 Overriding Parts of the Project
--------------------------------
+===============================
 
 .. _project_include.cmake:
 
 project_include.cmake
-^^^^^^^^^^^^^^^^^^^^^
+---------------------
 
 For components that have build requirements which must be evaluated before any component CMakeLists
 files are evaluated, you can create a file called ``project_include.cmake`` in the
@@ -675,7 +647,7 @@ Note that ``project_include.cmake`` isn't necessary for the most common componen
 Take great care when setting variables or targets in a ``project_include.cmake`` file. As the values are included into the top-level project CMake pass, they can influence or break functionality across all components!
 
 KConfig.projbuild
-^^^^^^^^^^^^^^^^^
+-----------------
 
 This is an equivalent to ``project_include.cmake`` for :ref:`component-configuration` KConfig files. If you want to include
 configuration options at the top-level of menuconfig, rather than inside the "Component Configuration" sub-menu, then these can be defined in the KConfig.projbuild file alongside the ``CMakeLists.txt`` file.
@@ -685,10 +657,40 @@ Take care when adding configuration values in this file, as they will be include
 ``project_include.cmake`` files are used inside ESP-IDF, for defining project-wide build features such as ``esptool.py`` command line arguments and the ``bootloader`` "special app".
 
 Configuration-Only Components
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+=============================
 
 Special components which contain no source files, only ``Kconfig.projbuild`` and ``KConfig``, can have a one-line ``CMakeLists.txt`` file which calls the function ``idf_component_register()`` with no 
 arguments specified. This function will include the component in the project build, but no library will be built *and* no header files will be added to any include paths.
+
+
+Debugging CMake
+===============
+
+For full details about CMake_ and CMake commands, see the `CMake v3.5 documentation`_.
+
+Some tips for debugging the ESP-IDF CMake-based build system:
+
+- When CMake runs, it prints quite a lot of diagnostic information including lists of components and component paths.
+- Running ``cmake -DDEBUG=1`` will produce more verbose diagnostic output from the IDF build system.
+- Running ``cmake`` with the ``--trace`` or ``--trace-expand`` options will give a lot of information about control flow. See the `cmake command line documentation`_.
+
+When included from a project CMakeLists file, the ``project.cmake`` file defines some utility modules and global variables and then sets ``IDF_PATH`` if it was not set in the system environment.
+
+It also defines an overridden custom version of the built-in CMake_ ``project`` function. This function is overridden to add all of the ESP-IDF specific project functionality.
+
+.. _warn-undefined-variables:
+
+Warning On Undefined Variables
+------------------------------
+
+By default, ``idf.py`` passes the ``--warn-uninitialized`` flag to CMake_ so it will print a warning if an undefined variable is referenced in the build. This can be very useful to find buggy CMake files.
+
+If you don't want this behaviour, it can be disabled by passing ``--no-warnings`` to ``idf.py``.
+
+Browse the :idf_file:`/tools/cmake/project.cmake` file and supporting functions in :idf:`/tools/cmake/` for more details.
+
+.. _gnu-make-to-cmake:
+
 
 Example Component CMakeLists
 ============================
@@ -846,7 +848,7 @@ To embed a file into a project, rather than a component, you can call the functi
 
 Place this line after the ``project()`` line in your project CMakeLists.txt file. Replace ``myproject.elf`` with your project name. The final argument can be ``TEXT`` to embed a null-terminated string, or ``BINARY`` to embed the content as-is.
 
-For an example of using this technique, see :example:`protocols/https_request` - the certificate file contents are loaded from the text .pem file at compile time.
+For an example of using this technique, see the "main" component of the file_serving example :example_file:`protocols/http_server/file_serving/main/CMakeLists.txt` - two files are loaded at build time and linked into the firmware.
 
 Code and Data Placements
 ------------------------
@@ -904,7 +906,9 @@ the ESP-IDF build system entirely by using a CMake feature called ExternalProjec
 - The second set of commands adds a library target, which points to the "imported" library file built by the external system. Some properties need to be set in order to add include directories and tell CMake where this file is.
 - Finally, the generated library is added to `ADDITIONAL_MAKE_CLEAN_FILES`_. This means ``make clean`` will delete this library. (Note that the other object files from the build won't be deleted.)
 
-.. note:: When using an external build process with PSRAM, remember to add ``-mfix-esp32-psram-cache-issue`` to the C compiler arguments. See :ref:`CONFIG_SPIRAM_CACHE_WORKAROUND` for details of this flag.
+.. only:: esp32
+
+   .. note:: When using an external build process with PSRAM, remember to add ``-mfix-esp32-psram-cache-issue`` to the C compiler arguments. See :ref:`CONFIG_SPIRAM_CACHE_WORKAROUND` for details of this flag.
 
 .. _ADDITIONAL_MAKE_CLEAN_FILES_note:
 
@@ -929,14 +933,14 @@ Custom sdkconfig defaults
 
 For example projects or other projects where you don't want to specify a full sdkconfig configuration, but you do want to override some key values from the ESP-IDF defaults, it is possible to create a file ``sdkconfig.defaults`` in the project directory. This file will be used when creating a new config from scratch, or when any new config value hasn't yet been set in the ``sdkconfig`` file.
 
-To override the name of this file, set the ``SDKCONFIG_DEFAULTS`` environment variable.
+To override the name of this file or to specify multiple files, set the ``SDKCONFIG_DEFAULTS`` environment variable or set ``SDKCONFIG_DEFAULTS`` in top-level CMakeLists.txt. If specifying multiple files, use semicolon as the list separator. File names not specified as full paths are resolved relative to current project.
 
 Target-dependent sdkconfig defaults
 -----------------------------------
 
 In addition to ``sdkconfig.defaults`` file, build system will also load defaults from ``sdkconfig.defaults.TARGET_NAME`` file, where ``TARGET_NAME`` is the value of ``IDF_TARGET``. For example, for ``esp32`` target, default settings will be taken from ``sdkconfig.defaults`` first, and then from ``sdkconfig.defaults.esp32``.
 
-If ``SDKCONFIG_DEFAULTS`` is used to override the name of defaults file, the name of target-specific defaults file will be derived from ``SDKCONFIG_DEFAULTS`` value.
+If ``SDKCONFIG_DEFAULTS`` is used to override the name of defaults file/files, the name of target-specific defaults file will be derived from ``SDKCONFIG_DEFAULTS`` value/values using the rule above.
 
 
 Flash arguments
@@ -969,14 +973,37 @@ The bootloader is a special "subproject" inside :idf:`/components/bootloader/sub
 
 The subproject is inserted as an external project from the top-level project, by the file :idf_file:`/components/bootloader/project_include.cmake`. The main build process runs CMake for the subproject, which includes discovering components (a subset of the main components) and generating a bootloader-specific config (derived from the main ``sdkconfig``).
 
+.. _selecting-idf-target:
+
 Selecting the Target
 ====================
 
-Currently ESP-IDF supports one target, ``esp32``. It is used by default by the build system. Developers working on adding multiple target support can change the target as follows::
+ESP-IDF supports multiple targets (chips). The identifiers used for each chip are as follows:
 
-  rm sdkconfig
-  idf.py -DIDF_TARGET=new_target reconfigure
+* ``esp32`` — for ESP32-D0WD, ESP32-D2WD, ESP32-S0WD (ESP-SOLO), ESP32-U4WDH, ESP32-PICO-D4
+* ``esp32s2``— for ESP32-S2
 
+To select the target before building the project, use ``idf.py set-target <target>`` command, for example::
+
+    idf.py set-target esp32s2
+
+.. important::
+
+    ``idf.py set-target`` will clear the build directory and re-generate the ``sdkconfig`` file from scratch. The old ``sdkconfig`` file will be saved as ``sdkconfig.old``.
+
+.. note::
+
+    The behavior of ``idf.py set-target`` command is equivalent to:
+
+    1. clearing the build directory (``idf.py fullclean``)
+    2. removing the sdkconfig file (``mv sdkconfig sdkconfig.old``)
+    3. configuring the project with the new target (``idf.py -DIDF_TARGET=esp32 reconfigure``)
+
+It is also possible to pass the desired ``IDF_TARGET`` as an environement variable (e.g. ``export IDF_TARGET=esp32s2``) or as a CMake variable (e.g. ``-DIDF_TARGET=esp32s2`` argument to CMake or idf.py). Setting the environment variable is a convenient method if you mostly work with one type of the chip.
+
+To specify the _default_ value of ``IDF_TARGET`` for a given project, add ``CONFIG_IDF_TARGET`` value to ``sdkconfig.defaults``. For example, ``CONFIG_IDF_TARGET="esp32s2"``. This value will be used if ``IDF_TARGET`` is not specified by other method: using an environment variable, CMake variable, or ``idf.py set-target`` command.
+
+If the target has not been set by any of these methods, the build system will default to ``esp32`` target.
 
 Writing Pure CMake Components
 =============================
@@ -1033,10 +1060,27 @@ Espressif's fork of `mbedtls <https://github.com/ARMmbed/mbedtls>`_. See its :co
 
 The CMake variable ``ESP_PLATFORM`` is set to 1 whenever the ESP-IDF build system is being used. Tests such as ``if (ESP_PLATFORM)`` can be used in generic CMake code if special IDF-specific logic is required.
 
+Using ESP-IDF components from external libraries
+------------------------------------------------
+
+The above example assumes that the external library ``foo` (or ``tinyxml`` in the case of the ``import_lib`` example) doesn't need to use any ESP-IDF APIs apart from common APIs such as libc, libstdc++, etc. If the external library needs to use APIs provided by other ESP-IDF components, this needs to be specified in the external CMakeLists.txt file by adding a dependency on the library target ``idf::<componentname>``.
+
+For example, in the ``foo/CMakeLists.txt`` file::
+
+  add_library(foo bar.c fizz.cpp buzz.cpp)
+
+  if(ESP_PLATFORM)
+    # On ESP-IDF, bar.c needs to include esp_spi_flash.h from the spi_flash component
+    target_link_libraries(foo PRIVATE idf::spi_flash)
+  endif()
+
+
 Using Prebuilt Libraries with Components
 ========================================
 
 .. highlight:: cmake
+
+Another possibility is that you have a prebuilt static library (``.a`` file), built by some other build process.
 
 The ESP-IDF build system provides a utility function ``add_prebuilt_library`` for users to be able to easily import and use
 prebuilt libraries::
@@ -1089,7 +1133,10 @@ It is possible to do so by using the :ref:`build system APIs provided<cmake_buil
 The example in :example:`build_system/cmake/idf_as_lib` demonstrates the creation of an application equivalent to :example:`hello world application <get-started/hello_world>`
 using a custom CMake project.
 
-.. note:: The IDF build system can only set compiler flags for source files that it builds. When an external CMakeLists.txt file is used and PSRAM is enabled, remember to add ``-mfix-esp32-psram-cache-issue`` to the C compiler arguments. See :ref:`CONFIG_SPIRAM_CACHE_WORKAROUND` for details of this flag.
+.. only:: esp32
+
+   .. note:: The IDF build system can only set compiler flags for source files that it builds. When an external CMakeLists.txt file is used and PSRAM is enabled, remember to add ``-mfix-esp32-psram-cache-issue`` to the C compiler arguments. See :ref:`CONFIG_SPIRAM_CACHE_WORKAROUND` for details of this flag.
+
 .. _cmake_buildsystem_api:
 
 ESP-IDF CMake Build System API
@@ -1146,7 +1193,7 @@ The call requires the target chip to be specified with *target* argument. Option
 - PROJECT_NAME - name of the project; defaults to CMAKE_PROJECT_NAME
 - PROJECT_VER - version/revision of the project; defaults to "1"
 - SDKCONFIG - output path of generated sdkconfig file; defaults to PROJECT_DIR/sdkconfig or CMAKE_SOURCE_DIR/sdkconfig depending if PROJECT_DIR is set
-- SDKCONFIG_DEFAULTS - defaults file to use for the build; defaults to empty
+- SDKCONFIG_DEFAULTS - list of files containing default config to use in the build (list must contain full paths); defaults to empty. For each value *filename* in the list, the config from file *filename.target*, if it exists, is also loaded.
 - BUILD_DIR - directory to place ESP-IDF build-related artifacts, such as generated binaries, text files, components; defaults to CMAKE_BINARY_DIR
 - COMPONENTS - select components to process among the components known by the build system (added via `idf_build_component`). This argument is used to trim the build. 
   Other components are automatically added if they are required in the dependency chain, i.e. 
@@ -1190,6 +1237,7 @@ For example, to get the Python interpreter used for the build:
   - CXX_COMPILE_OPTIONS - compile options applied to all components' C++ source files
   - EXECUTABLE - project executable; set by call to ``idf_build_executable``
   - EXECUTABLE_NAME - name of project executable without extension; set by call to ``idf_build_executable``
+  - EXECUTABLE_DIR - path containing the output executable
   - IDF_PATH - ESP-IDF path; set from IDF_PATH environment variable, if not, inferred from the location of ``idf.cmake``
   - IDF_TARGET - target chip for the build; set from the required target argument for ``idf_build_process``
   - IDF_VER - ESP-IDF version; set from either a version file or the Git revision of the IDF_PATH repository
@@ -1201,7 +1249,7 @@ For example, to get the Python interpreter used for the build:
   - PROJECT_VER - version of the project; set from ``idf_build_process`` PROJECT_VER argument
   - PYTHON - Python interpreter used for the build; set from PYTHON environment variable if available, if not "python" is used
   - SDKCONFIG - full path to output config file; set from ``idf_build_process`` SDKCONFIG argument
-  - SDKCONFIG_DEFAULTS - full path to config defaults file; set from ``idf_build_process`` SDKCONFIG_DEFAULTS argument
+  - SDKCONFIG_DEFAULTS - list of files containing default config to use in the build; set from ``idf_build_process`` SDKCONFIG_DEFAULTS argument
   - SDKCONFIG_HEADER - full path to C/C++ header file containing component configuration; set by ``idf_build_process``
   - SDKCONFIG_CMAKE - full path to CMake file containing component configuration; set by ``idf_build_process``
   - SDKCONFIG_JSON - full path to JSON file containing component configuration; set by ``idf_build_process``
@@ -1355,49 +1403,88 @@ A tool called ``confserver.py`` is provided to allow IDEs to easily integrate wi
 
 You can run ``confserver.py`` from a project via ``idf.py confserver`` or ``ninja confserver``, or a similar target triggered from a different build generator.
 
-The config server outputs human-readable errors and warnings on stderr and JSON on stdout. On startup, it will output the full values of each configuration item in the system as a JSON dictionary, and the available ranges for values which are range constrained. The same information is contained in ``sdkconfig.json``::
+For more information about ``confserver.py``, see :idf_file:`tools/kconfig_new/README.md`.
 
-  {"version": 1, "values": { "ITEM": "value", "ITEM_2": 1024, "ITEM_3": false }, "ranges" : { "ITEM_2" : [ 0, 32768 ] } }
+Build System Internals
+=======================
 
-Only visible configuration items are sent. Invisible/disabled items can be parsed from the static ``kconfig_menus.json`` file which also contains the menu structure and other metadata (descriptions, types, ranges, etc.)
+Build Scripts
+-------------
 
-The Configuration Server will then wait for input from the client. The client passes a request to change one or more values, as a JSON object followed by a newline::
+The listfiles for the ESP-IDF build system reside in :idf:`/tools/cmake`. The modules which implement core build system functionality are as follows:
 
-   {"version": "1", "set": {"SOME_NAME": false, "OTHER_NAME": true } }
+    - build.cmake - Build related commands i.e. build initialization, retrieving/setting build properties, build processing.
+    - component.cmake - Component related commands i.e. adding components, retrieving/setting component properties, registering components.
+    - kconfig.cmake - Generation of configuration files (sdkconfig, sdkconfig.h, sdkconfig.cmake, etc.) from Kconfig files.
+    - ldgen.cmake - Generation  of  final linker script from linker fragment files.
+    - target.cmake - Setting build target and toolchain file.
+    - utilities.cmake - Miscellaneous helper commands.
 
-The Configuration Server will parse this request, update the project ``sdkconfig`` file, and return a full list of changes::
+ Aside from these files, there are two other important CMake scripts in :idf:`/tools/cmake`:
 
-   {"version": 1, "values": {"SOME_NAME": false, "OTHER_NAME": true , "DEPENDS_ON_SOME_NAME": null}}
+    - idf.cmake - Sets up the build and includes the core modules listed above. Included in CMake projects in order to access ESP-IDF build system functionality.
+    - project.cmake - Includes ``idf.cmake`` and provides a custom ``project()`` command that takes care of all the heavy lifting of building an executable. Included in the top-level CMakeLists.txt of standard ESP-IDF projects.
 
-Items which are now invisible/disabled will return value ``null``. Any item which is newly visible will return its newly visible current value.
+The rest of the files in :idf:`/tools/cmake` are support or third-party scripts used in the build process. 
 
-If the range of a config item changes, due to conditional range depending on another value, then this is also sent::
+Build Process
+-------------
 
-   {"version": 1, "values": {"OTHER_NAME": true }, "ranges" : { "HAS_RANGE" : [ 3, 4 ] } }
+This section describes the standard ESP-IDF application build process. The build process can be broken down roughly into four phases:
 
-If invalid data is passed, an "error" field is present on the object::
+.. blockdiag::
+    :scale: 100%
+    :caption: ESP-IDF Build System Process
+    :align: center
+    
+    blockdiag idf-build-system-process {
+        Initialization -> Enumeration
+        Enumeration -> Processing
+        Processing -> Finalization
+    }
 
-    {"version": 1, "values": {}, "error": ["The following config symbol(s) were not visible so were not updated: NOT_VISIBLE_ITEM"]}
+Initialization 
+^^^^^^^^^^^^^^
+  This phase sets up necessary parameters for the build.
 
-By default, no config changes are written to the sdkconfig file. Changes are held in memory until a "save" command is sent::
+    - Upon inclusion of ``idf.cmake`` in ``project.cmake``, the following steps are performed:
+        - Set ``IDF_PATH`` from environment variable or inferred from path to ``project.cmake`` included in the top-level CMakeLists.txt.
+        - Add :idf:`/tools/cmake` to ``CMAKE_MODULE_PATH`` and include core modules plus the various helper/third-party scripts.
+        - Set build tools/executables such as default Python interpreter.
+        - Get ESP-IDF git revision and store as ``IDF_VER``.
+        - Set global build specifications i.e. compile options, compile definitions, include directories for all components in the build.
+        - Add components in :idf:`components` to the build.
+    - The initial part of the custom ``project()`` command performs the following steps:
+        - Set ``IDF_TARGET`` from environment variable or CMake cache and the corresponding ``CMAKE_TOOLCHAIN_FILE`` to be used. 
+        - Add components in ``EXTRA_COMPONENTS_DIRS`` to the build.
+        - Prepare arguments for calling command ``idf_build_process()`` from variables such as ``COMPONENTS``/``EXCLUDE_COMPONENTS``, ``SDKCONFIG``, ``SDKCONFIG_DEFAULTS``.
 
-    {"version": 1, "save": null }
+  The call to ``idf_build_process()`` command marks the end of this phase.
 
-To reload the config values from a saved file, discarding any changes in memory, a "load" command can be sent::
+Enumeration
+^^^^^^^^^^^
+  This phase builds a final list of components to be processed in the build, and is performed in the first half of ``idf_build_process()``.
 
-    {"version": 1, "load": null }
+    - Retrieve each component's public and private requirements. A child process is created which executes each component's CMakeLists.txt in script mode. The values of ``idf_component_register`` REQUIRES and PRIV_REQUIRES argument is returned to the parent build process. This is called early expansion. The variable ``CMAKE_BUILD_EARLY_EXPANSION`` is defined during this step.
+    - Recursively include components based on public and private requirements.
 
-The value for both "load" and "save" can be a new pathname, or "null" to load/save the previous pathname.
+Processing
+^^^^^^^^^^
+  This phase processes the components in the build, and is the second half of ``idf_build_process()``.
 
-The response to a "load" command is always the full set of config values and ranges, the same as when the server is initially started.
+  - Load project configuration from sdkconfig file and generate an sdkconfig.cmake and sdkconfig.h header. These define configuration variables/macros that are accessible from the build scripts and C/C++ source/header files, respectively.
+  - Include each component's ``project_include.cmake``.
+  - Add each component as a subdirectory, processing its CMakeLists.txt. The component CMakeLists.txt calls the registration command, ``idf_component_register`` which adds source files, include directories, creates component library, links dependencies, etc.
 
-Any combination of "load", "set", and "save" can be sent in a single command and commands are executed in that order. Therefore it's possible to load config from a file, set some config item values and then save to a file in a single command.
+Finalization
+^^^^^^^^^^^^
+  This phase is everything after ``idf_build_process()``. 
+  
+  - Create executable and link the component libraries to it.
+  - Generate project metadata files such as project_description.json and display relevant information about the project built.
 
-.. note:: The configuration server does not automatically load any changes which are applied externally to the ``sdkconfig`` file. Send a "load" command or restart the server if the file is externally edited.
 
-.. note:: The configuration server does not re-run CMake to regenerate other build files or metadata files after ``sdkconfig`` is updated. This will happen automatically the next time ``CMake`` or ``idf.py`` is run.
-
-.. _gnu-make-to-cmake:
+Browse :idf_file:`/tools/cmake/project.cmake` for more details.
 
 Migrating from ESP-IDF GNU Make System
 ======================================
@@ -1446,7 +1533,6 @@ Some features are significantly different or removed in the CMake-based system. 
 - ``COMPONENT_CONFIG_ONLY``: Call ``idf_component_register`` without any arguments instead. See `Configuration-Only Components`_.
 - ``CFLAGS``, ``CPPFLAGS``, ``CXXFLAGS``: Use equivalent CMake commands instead. See `Controlling Component Compilation`_.
 
-
 No Default Values
 -----------------
 
@@ -1478,7 +1564,7 @@ Flashing from make
 .. _cmake project: https://cmake.org/cmake/help/v3.5/command/project.html
 .. _cmake set: https://cmake.org/cmake/help/v3.5/command/set.html
 .. _cmake string: https://cmake.org/cmake/help/v3.5/command/string.html
-.. _cmake faq generated files: https://cmake.org/Wiki/CMake_FAQ#How_can_I_generate_a_source_file_during_the_build.3F
+.. _cmake faq generated files: https://gitlab.kitware.com/cmake/community/-/wikis/FAQ#how-can-i-generate-a-source-file-during-the-build
 .. _ADDITIONAL_MAKE_CLEAN_FILES: https://cmake.org/cmake/help/v3.5/prop_dir/ADDITIONAL_MAKE_CLEAN_FILES.html
 .. _ExternalProject: https://cmake.org/cmake/help/v3.5/module/ExternalProject.html
 .. _cmake language variables: https://cmake.org/cmake/help/v3.5/manual/cmake-variables.7.html#variables-for-languages
@@ -1487,6 +1573,6 @@ Flashing from make
 .. _target_link_libraries: https://cmake.org/cmake/help/v3.5/command/target_link_libraries.html#command:target_link_libraries
 .. _cmake_toolchain_file: https://cmake.org/cmake/help/v3.5/variable/CMAKE_TOOLCHAIN_FILE.html
 .. _quirc: https://github.com/dlbeer/quirc
-.. _pyenv: https://github.com/pyenv/pyenv#README
+.. _pyenv: https://github.com/pyenv/pyenv#readme
 .. _virtualenv: https://virtualenv.pypa.io/en/stable/
 .. _CCache: https://ccache.dev/

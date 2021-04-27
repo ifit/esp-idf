@@ -14,14 +14,14 @@ extern "C" {
 #endif
 
 #include "esp_err.h"
-#include "tcpip_adapter.h"
+#include "esp_netif.h"
 
 #ifdef CONFIG_EXAMPLE_CONNECT_ETHERNET
-#define EXAMPLE_INTERFACE TCPIP_ADAPTER_IF_ETH
+#define EXAMPLE_INTERFACE get_example_netif()
 #endif
 
 #ifdef CONFIG_EXAMPLE_CONNECT_WIFI
-#define EXAMPLE_INTERFACE TCPIP_ADAPTER_IF_STA
+#define EXAMPLE_INTERFACE get_example_netif()
 #endif
 
 /**
@@ -39,12 +39,12 @@ extern "C" {
  *
  * @return ESP_OK on successful connection
  */
-esp_err_t example_connect();
+esp_err_t example_connect(void);
 
 /**
  * Counterpart to example_connect, de-initializes Wi-Fi or Ethernet
  */
-esp_err_t example_disconnect();
+esp_err_t example_disconnect(void);
 
 /**
  * @brief Configure stdin and stdout to use blocking I/O
@@ -52,7 +52,26 @@ esp_err_t example_disconnect();
  * This helper function is used in ASIO examples. It wraps installing the
  * UART driver and configuring VFS layer to use UART driver for console I/O.
  */
-esp_err_t example_configure_stdin_stdout();
+esp_err_t example_configure_stdin_stdout(void);
+
+/**
+ * @brief Returns esp-netif pointer created by example_connect()
+ *
+ * @note If multiple interfaces active at once, this API return NULL
+ * In that case the get_example_netif_from_desc() should be used
+ * to get esp-netif pointer based on interface description
+ */
+esp_netif_t *get_example_netif(void);
+
+/**
+ * @brief Returns esp-netif pointer created by example_connect() described by
+ * the supplied desc field
+ *
+ * @param desc Textual interface of created network interface, for example "sta"
+ * indicate default WiFi station, "eth" default Ethernet interface.
+ *
+ */
+esp_netif_t *get_example_netif_from_desc(const char *desc);
 
 #ifdef __cplusplus
 }

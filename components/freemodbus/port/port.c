@@ -37,7 +37,6 @@
 
 /* ----------------------- Modbus includes ----------------------------------*/
 #include "freertos/FreeRTOS.h"
-#include "freertos/portmacro.h"
 #include "sys/lock.h"
 #include "port.h"
 
@@ -46,13 +45,13 @@ static _lock_t s_port_lock;
 
 /* ----------------------- Start implementation -----------------------------*/
 inline void
-vMBPortEnterCritical( )
+vMBPortEnterCritical(void)
 {
     _lock_acquire(&s_port_lock);
 }
 
 inline void
-vMBPortExitCritical( )
+vMBPortExitCritical(void)
 {
     _lock_release(&s_port_lock);
 }

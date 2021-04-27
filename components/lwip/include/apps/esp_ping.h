@@ -54,12 +54,13 @@ typedef enum {
     PING_TARGET_RES_FN              = 55,   /**< ping result callback function */
     PING_TARGET_RES_RESET           = 56,   /**< ping result statistic reset */
     PING_TARGET_DATA_LEN            = 57,   /**< ping data length*/
-    PING_TARGET_IP_TOS              = 58    /**< ping QOS*/
+    PING_TARGET_IP_TOS              = 58,    /**< ping QOS*/
+    PING_TARGET_IF_INDEX            = 59    /**< ping if index*/
 } ping_target_id_t;
 
 typedef enum {
     PING_RES_TIMEOUT = 0,
-    PING_RES_OK      = 1, 
+    PING_RES_OK      = 1,
     PING_RES_FINISH  = 2,
 } ping_res_t;
 

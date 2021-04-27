@@ -25,7 +25,7 @@
 #include "sys/time.h"
 
 #define SPP_TAG "SPP_INITIATOR_DEMO"
-#define EXCAMPLE_DEVICE_NAME "ESP_SPP_INITIATOR"
+#define EXAMPLE_DEVICE_NAME "ESP_SPP_INITIATOR"
 
 #define SPP_SHOW_DATA 0
 #define SPP_SHOW_SPEED 1
@@ -103,7 +103,7 @@ static void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
     switch (event) {
     case ESP_SPP_INIT_EVT:
         ESP_LOGI(SPP_TAG, "ESP_SPP_INIT_EVT");
-        esp_bt_dev_set_device_name(EXCAMPLE_DEVICE_NAME);
+        esp_bt_dev_set_device_name(EXAMPLE_DEVICE_NAME);
         esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
         esp_bt_gap_start_discovery(inq_mode, inq_len, inq_num_rsps);
 
@@ -116,7 +116,7 @@ static void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
         break;
     case ESP_SPP_OPEN_EVT:
         ESP_LOGI(SPP_TAG, "ESP_SPP_OPEN_EVT");
-        esp_spp_write(param->srv_open.handle, SPP_DATA_LEN, spp_data);
+        esp_spp_write(param->open.handle, SPP_DATA_LEN, spp_data);
         gettimeofday(&time_old, NULL);
         break;
     case ESP_SPP_CLOSE_EVT:
@@ -156,6 +156,9 @@ static void esp_spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
         break;
     case ESP_SPP_SRV_OPEN_EVT:
         ESP_LOGI(SPP_TAG, "ESP_SPP_SRV_OPEN_EVT");
+        break;
+    case ESP_SPP_UNINIT_EVT:
+        ESP_LOGI(SPP_TAG, "ESP_SPP_UNINIT_EVT");
         break;
     default:
         break;
@@ -235,7 +238,7 @@ static void esp_bt_gap_cb(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *pa
     }
 }
 
-void app_main()
+void app_main(void)
 {
     for (int i = 0; i < SPP_DATA_LEN; ++i) {
         spp_data[i] = i;

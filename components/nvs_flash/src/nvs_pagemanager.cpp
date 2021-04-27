@@ -21,7 +21,7 @@ esp_err_t PageManager::load(uint32_t baseSector, uint32_t sectorCount)
     mPageCount = sectorCount;
     mPageList.clear();
     mFreePageList.clear();
-    mPages.reset(new (std::nothrow) Page[sectorCount]);
+    mPages.reset(new (nothrow) Page[sectorCount]);
 
     if (!mPages) return ESP_ERR_NO_MEM;
 

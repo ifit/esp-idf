@@ -20,6 +20,11 @@ extern "C" {
 
 #include "esp_system.h"
 
+#define MWDT0_TICK_PRESCALER    40000
+#define MWDT0_TICKS_PER_US      500
+#define MWDT1_TICK_PRESCALER    40000
+#define MWDT1_TICKS_PER_US      500
+
 /**
  * @brief  Internal function to restart PRO and APP CPUs.
  *
@@ -29,7 +34,12 @@ extern "C" {
  * This is an internal function called by esp_restart. It is called directly
  * by the panic handler and brownout detector interrupt.
  */
-void esp_restart_noos() __attribute__ ((noreturn));
+void esp_restart_noos(void) __attribute__ ((noreturn));
+
+/**
+ * @brief Similar to esp_restart_noos, but resets all the digital peripherals.
+ */
+void esp_restart_noos_dig(void) __attribute__ ((noreturn));
 
 /**
  * @brief  Internal function to set reset reason hint

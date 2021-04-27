@@ -1,3 +1,6 @@
+| Supported Targets | ESP32 |
+| ----------------- | ----- |
+
 # I2S Example
 
 (See the README.md file in the upper level 'examples' directory for more information about examples.)
@@ -51,9 +54,9 @@ If you have a logic analyzer, you can use a logic analyzer to grab online data. 
 
 | pin name| function | gpio_num |
 |:---:|:---:|:---:|
-| WS  |word select| GPIO_NUM_25 |
-| SCK |continuous serial clock| GPIO_NUM_26 |
-| SD  |serial data| GPIO_NUM_22 |
+| WS  |word select| GPIO_NUM_15 |
+| SCK |continuous serial clock| GPIO_NUM_13 |
+| SD  |serial data| GPIO_NUM_21 |
 
 ## Troubleshooting
 

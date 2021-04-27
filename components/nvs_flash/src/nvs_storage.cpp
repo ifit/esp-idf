@@ -47,7 +47,7 @@ esp_err_t Storage::populateBlobIndices(TBlobIndexList& blobIdxList)
 
             if (!entry) return ESP_ERR_NO_MEM;
 
-            item.getKey(entry->key, sizeof(entry->key) - 1);
+            item.getKey(entry->key, sizeof(entry->key));
             entry->nsIndex = item.nsIndex;
             entry->chunkStart = item.blobIndex.chunkStart;
             entry->chunkCount = item.blobIndex.chunkCount;
@@ -111,7 +111,7 @@ esp_err_t Storage::init(uint32_t baseSector, uint32_t sectorCount)
                 return ESP_ERR_NO_MEM;
             }
 
-            item.getKey(entry->mName, sizeof(entry->mName) - 1);
+            item.getKey(entry->mName, sizeof(entry->mName));
             item.getValue(entry->mIndex);
             mNamespaces.push_back(entry);
             mNamespaceUsage.set(entry->mIndex, true);

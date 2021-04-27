@@ -4,7 +4,12 @@ Project Configuration
 Introduction
 ============
 
-ESP-IDF uses Kconfig_ system to provide a compile-time project configuration mechanism. Kconfig is based around options of several types: integer, string, boolean. Kconfig files specify dependencies between options, default values of the options, the way the options are grouped together, etc.
+ESP-IDF uses kconfiglib_ which is a Python-based extension to the Kconfig_ system which provides a compile-time
+project configuration mechanism. Kconfig is based around options of several types: integer, string, boolean. Kconfig
+files specify dependencies between options, default values of the options, the way the options are grouped together,
+etc.
+
+For the complete list of available features please see Kconfig_ and `kconfiglib extentions`_.
 
 .. _project-configuration-menu:
 
@@ -80,7 +85,7 @@ Subsequent sections contain the list of available ESP-IDF options, automatically
 By convention, all option names are upper case with underscores. When Kconfig generates sdkconfig and sdkconfig.h files, option names are prefixed with ``CONFIG_``. So if an option ``ENABLE_FOO`` is defined in a Kconfig file and selected in menuconfig, then sdkconfig and sdkconfig.h files will have ``CONFIG_ENABLE_FOO`` defined. In this reference, option names are also prefixed with ``CONFIG_``, same as in the source code.
 
 
-.. include:: /_build/inc/kconfig.inc
+.. include-build-file:: inc/kconfig.inc
 
 Customisations
 ==============
@@ -92,3 +97,5 @@ Because IDF builds by default with :ref:`warn-undefined-variables`, when the Kco
 When generating header files for C & C++, the behaviour is not customised - so ``#ifdef`` can be used to test if a boolean config item is set or not.
 
 .. _Kconfig: https://www.kernel.org/doc/Documentation/kbuild/kconfig-language.txt
+.. _kconfiglib: https://github.com/ulfalizer/Kconfiglib
+.. _kconfiglib extentions: https://pypi.org/project/kconfiglib/#kconfig-extensions

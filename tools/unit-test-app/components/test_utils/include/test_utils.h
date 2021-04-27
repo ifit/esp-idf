@@ -18,6 +18,8 @@
 #include <stdint.h>
 #include <esp_partition.h>
 #include "sdkconfig.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 /* include performance pass standards header file */
 #include "idf_performance.h"
@@ -26,16 +28,22 @@
 /* These macros should only be used with ESP-IDF.
  * To use performance check, we need to first define pass standard in idf_performance.h.
  */
+
+//macros call this to expand an argument instead of directly converting into str
+#define PERFORMANCE_STR(s)   #s
+//macros call this to contact strings after expanding them
+#define PERFORMANCE_CON(a, b) _PERFORMANCE_CON(a, b)
+#define _PERFORMANCE_CON(a, b) a##b
+
 #define TEST_PERFORMANCE_LESS_THAN(name, value_fmt, value)  do { \
-    printf("[Performance]["#name"]: "value_fmt"\n", value); \
-    TEST_ASSERT(value < IDF_PERFORMANCE_MAX_##name); \
+    printf("[Performance]["PERFORMANCE_STR(name)"]: "value_fmt"\n", value); \
+    TEST_ASSERT(value < PERFORMANCE_CON(IDF_PERFORMANCE_MAX_, name)); \
 } while(0)
 
 #define TEST_PERFORMANCE_GREATER_THAN(name, value_fmt, value)  do { \
-    printf("[Performance]["#name"]: "value_fmt"\n", value); \
-    TEST_ASSERT(value > IDF_PERFORMANCE_MIN_##name); \
+    printf("[Performance]["PERFORMANCE_STR(name)"]: "value_fmt"\n", value); \
+    TEST_ASSERT(value > PERFORMANCE_CON(IDF_PERFORMANCE_MIN_, name)); \
 } while(0)
-
 
 /* @brief macro to print IDF performance
  * @param mode :        performance item name. a string pointer.
@@ -54,7 +62,7 @@
 /* Return the 'flash_test' custom data partition (type 0x55)
    defined in the custom partition table.
 */
-const esp_partition_t *get_test_data_partition();
+const esp_partition_t *get_test_data_partition(void);
 
 /**
  * @brief Initialize reference clock
@@ -62,26 +70,26 @@ const esp_partition_t *get_test_data_partition();
  * Reference clock provides timestamps at constant 1 MHz frequency, even when
  * the APB frequency is changing.
  */
-void ref_clock_init();
+void ref_clock_init(void);
 
 /**
  * @brief Deinitialize reference clock
  */
-void ref_clock_deinit();
+void ref_clock_deinit(void);
 
 
 /**
  * @brief Get reference clock timestamp
  * @return number of microseconds since the reference clock was initialized
  */
-uint64_t ref_clock_get();
+uint64_t ref_clock_get(void);
 
 /**
  * @brief Entry point of the test application
  *
  * Starts Unity test runner in a separate task and returns.
  */
-void test_main();
+void test_main(void);
 
 /**
  * @brief Reset automatic leak checking which happens in unit tests.
@@ -238,7 +246,6 @@ esp_err_t test_utils_set_leak_level(size_t leak_level, esp_type_leak_t type, esp
 size_t test_utils_get_leak_level(esp_type_leak_t type, esp_comp_leak_t component);
 
 
-
 typedef struct test_utils_exhaust_memory_record_s *test_utils_exhaust_memory_rec;
 
 /**
@@ -264,3 +271,9 @@ test_utils_exhaust_memory_rec test_utils_exhaust_memory(uint32_t caps, size_t li
 void test_utils_free_exhausted_memory(test_utils_exhaust_memory_rec rec);
 
 
+/**
+ * @brief Delete task ensuring dynamic memory (for stack, tcb etc.) gets freed up immediately
+ *
+ * @param[in] thandle    Handle of task to be deleted (should not be NULL or self handle)
+ */
+void test_utils_task_delete(TaskHandle_t thandle);

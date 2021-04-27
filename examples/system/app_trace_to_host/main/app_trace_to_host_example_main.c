@@ -85,10 +85,14 @@ static int adc1_sample_and_show(int sampling_period)
  * and logging results with application tracing to the host
  * as well as for comparison printing out sampling result to UART
  */
-void app_main()
+void app_main(void)
 {
     ESP_LOGI(TAG, "Enabling ADC1 on channel 6 / GPIO34.");
+#if CONFIG_IDF_TARGET_ESP32
     adc1_config_width(ADC_WIDTH_BIT_12);
+#elif CONFIG_IDF_TARGET_ESP32S2
+    adc1_config_width(ADC_WIDTH_BIT_13);
+#endif
     adc1_config_channel_atten(ADC1_TEST_CHANNEL, ADC_ATTEN_DB_11);
 
     ESP_LOGI(TAG, "Enabling CW generator on DAC channel 1 / GPIO25.");
