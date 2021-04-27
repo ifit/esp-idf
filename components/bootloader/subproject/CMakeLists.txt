@@ -15,22 +15,9 @@ if(NOT IDF_TARGET)
         "in by the parent build process.")
 endif()
 
-if(NOT ICON_GEN_KCONFIG_PY)
-	message(FATAL_ERROR "Bootloader subproject expects the ICON_GEN_KCONFIG_PY variable to be passed "
-        "in by the parent build process.")
-endif()
-
-if(NOT ESP_SDK_KCONFIG)
-	message(FATAL_ERROR "Bootloader subproject expects the ESP_SDK_KCONFIG variable to be passed "
-        "in by the parent build process.")
-endif()
-message(STATUS "ESP_SDK_KCONFIG: ${ESP_SDK_KCONFIG}")
-
 set(COMPONENTS bootloader esptool_py partition_table soc bootloader_support log spi_flash micro-ecc main efuse)
 set(BOOTLOADER_BUILD 1)
-#include("${IDF_PATH}/tools/cmake/project.cmake")
-message(STATUS "Using ${ESP_CMAKE_TOOL_DIR}/project.cmake")
-include("${ESP_CMAKE_TOOL_DIR}/project.cmake")
+include("${IDF_PATH}/tools/cmake/project.cmake")
 set(common_req log esp_rom esp_common xtensa)
 if(LEGACY_INCLUDE_COMMON_HEADERS)
     list(APPEND common_req soc)
