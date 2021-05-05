@@ -32,18 +32,38 @@ from future.utils import iteritems
 
 import gen_kconfig_doc
 
-try:
-    from . import kconfiglib
-except Exception:
-    sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
-    import kconfiglib
+# ICON added/modified imports
+import kconfiglib
+import colorama
+import random
+from colorama import Fore, Style
+# END of ICON added
 
 __version__ = "0.1"
 
-if "IDF_CMAKE" not in os.environ:
-    os.environ["IDF_CMAKE"] = ""
+# if "IDF_CMAKE" not in os.environ:
+#     os.environ["IDF_CMAKE"] = ""
 
+# More added ICON stuff
+name_list = []
 
+module_debug=False
+
+def red_print(string):
+    global module_debug
+    if True == module_debug:
+        print(Fore.RED + string + Style.RESET_ALL)
+
+def blue_print(string):
+    global module_debug
+    if True == module_debug:
+        print(Fore.BLUE + string + Style.RESET_ALL)
+
+def cyan_print(string):
+    global module_debug
+    if True == module_debug:
+        print(Fore.CYAN + string + Style.RESET_ALL)
+# END of ICON added
 class DeprecatedOptions(object):
     _REN_FILE = 'sdkconfig.rename'
     _DEP_OP_BEGIN = '# Deprecated options for backward compatibility'
@@ -242,13 +262,13 @@ def main():
 
     for fmt, filename in args.output:
         if fmt not in OUTPUT_FORMATS.keys():
-            print("Format '%s' not recognised. Known formats: %s" % (fmt, OUTPUT_FORMATS.keys()))
+            red_print("Format '%s' not recognised. Known formats: %s" % (fmt, OUTPUT_FORMATS.keys()))
             sys.exit(1)
 
     try:
         args.env = [(name,value) for (name,value) in (e.split("=",1) for e in args.env)]
     except ValueError:
-        print("--env arguments must each contain =. To unset an environment variable, use 'ENV='")
+        red_print("--env arguments must each contain =. To unset an environment variable, use 'ENV='")
         sys.exit(1)
 
     for name, value in args.env:
@@ -258,7 +278,7 @@ def main():
         env = json.load(args.env_file)
         os.environ.update(dict_enc_for_env(env))
 
-    config = kconfiglib.Kconfig(args.kconfig)
+    config = kconfiglib.Kconfig(args.kconfig, warn=False)
     config.warn_assign_redun = False
     config.warn_assign_override = False
 
@@ -330,6 +350,7 @@ def main():
             try:
                 os.remove(temp_file)
             except OSError:
+                red_print("Failed to remove file {}".format(temp_file))
                 pass
 
 
@@ -404,6 +425,29 @@ def write_header(deprecated_options, config, filename):
     deprecated_options.append_header(config, filename)
 
 
+def menu_walk(cb, conf):
+    seen_items = []
+    # blue_print("In custom Menu Walk")
+    node = conf.top_node.list
+    
+    while True:
+        if not (node.item in seen_items):
+            cb(node)
+            seen_items.append(node)
+        if node.list:
+            node = node.list
+        elif node.next:
+            node = node.next
+        else:
+            while node.parent:
+                node = node.parent
+                if node.next:
+                    node = node.next
+                    break
+            else:
+                return
+
+
 def write_cmake(deprecated_options, config, filename):
     with open(filename, "w") as f:
         tmp_dep_list = []
@@ -420,7 +464,9 @@ def write_cmake(deprecated_options, config, filename):
 
         def write_node(node):
             sym = node.item
+            # blue_print("Node: {}".format(node))
             if not isinstance(sym, kconfiglib.Symbol):
+                # cyan_print("**** Node Not an instance ****")
                 return
 
             if sym.config_string:
@@ -438,6 +484,12 @@ def write_cmake(deprecated_options, config, filename):
                 if dep_opt:
                     tmp_dep_list.append('set({}{} "{}")\n'.format(prefix, dep_opt, val))
                     configs_list.append(prefix + dep_opt)
+                write_string = "set({}{} \"{}\")\n".format(prefix, sym.name, val)
+                # cyan_print("Writing String: {}".format(write_string))
+                write(write_string)
+        # blue_print("config is of type: {}".format(type(config)))
+        # config.walk_menu(write_node)
+        menu_walk(write_node, config)
 
         for n in config.node_iter():
             write_node(n)
@@ -446,6 +498,8 @@ def write_cmake(deprecated_options, config, filename):
         if len(tmp_dep_list) > 0:
             write('\n# List of deprecated options for backward compatibility\n')
             f.writelines(tmp_dep_list)
+                
+
 
 
 def get_json_values(config):
@@ -463,8 +517,12 @@ def get_json_values(config):
             elif sym.type == kconfiglib.HEX:
                 val = int(val, 16)
             elif sym.type == kconfiglib.INT:
+                cyan_print("name: {}".format(sym.name))
+                cyan_print("val: {}".format(val))
                 val = int(val)
             config_dict[sym.name] = val
+    # config.walk_menu(write_node)
+    menu_walk(write_node, config)
     for n in config.node_iter(False):
         write_node(n)
     return config_dict
@@ -533,17 +591,37 @@ def write_json_menus(deprecated_options, config, filename):
                         }
             if is_menuconfig:
                 sym = node.item
-                new_json["name"] = sym.name
-                new_json["help"] = node.help
+                # blue_print("Node:\n{}".format(node))
+                # cyan_print("Item:\n{}".format(type(sym)))
+                # cyan_print("{}".format(type(node)))
+                # if not isinstance(sym, int):
+                if hasattr(sym, 'name'):
+                    new_json["name"] = "{}".format(sym.name)
+                else:
+                    new_json["name"] = None
+                    # red_print("{} does not have attribute name".format(sym))
+                    # red_print("New Jason: {}".format(new_json))
+                if hasattr(node, "help"):
+                    new_json["help"] = node.help
+                else:
+                    new_json["help"] = None
+                    # red_print("{} does not have attribute help".format(node))
+                    # red_print("New Jason: {}".format(new_json))
                 new_json["is_menuconfig"] = is_menuconfig
                 greatest_range = None
-                if len(sym.ranges) > 0:
-                    # Note: Evaluating the condition using kconfiglib's expr_value
-                    # should have one condition which is true
-                    for min_range, max_range, cond_expr in sym.ranges:
-                        if kconfiglib.expr_value(cond_expr):
-                            greatest_range = [min_range, max_range]
+                # if not (isinstance(sym, int) or isinstance(sym, kconfiglib.Choice)):
+                if hasattr(sym, 'ranges'):
+                    if len(sym.ranges) > 0:
+                        # Note: Evaluating the condition using kconfiglib's expr_value
+                        # should have one condition which is true
+                        for min_range, max_range, cond_expr in sym.ranges:
+                            if kconfiglib.expr_value(cond_expr):
+                                greatest_range = [min_range, max_range]
+                else:
+                    # red_print("{} does not have attribute ranges".format(sym))
+                    greatest_range = 0
                 new_json["range"] = greatest_range
+                # cyan_print("json: {}".format(new_json))
 
         elif isinstance(node.item, kconfiglib.Symbol):
             sym = node.item
@@ -587,6 +665,9 @@ def write_json_menus(deprecated_options, config, filename):
             json_parent.append(new_json)
             node_lookup[node] = new_json
 
+    # config.walk_menu(write_node)
+    menu_walk(write_node, config)
+    # blue_print("Writing jason to file: {}".format(filename))
     for n in config.node_iter():
         write_node(n)
     with open(filename, "w") as f:
@@ -606,6 +687,7 @@ def write_docs(deprecated_options, config, filename):
 
 
 def update_if_changed(source, destination):
+    cyan_print("source: {} destination {}".format(source, destination))
     with open(source, "r") as f:
         source_contents = f.read()
 
@@ -613,17 +695,19 @@ def update_if_changed(source, destination):
         with open(destination, "r") as f:
             dest_contents = f.read()
         if source_contents == dest_contents:
+            cyan_print("Update Not required")
             return  # nothing to update
 
     with open(destination, "w") as f:
         f.write(source_contents)
+        blue_print("{} Written".format(destination))
 
 
 OUTPUT_FORMATS = {"config": write_config,
                   "makefile": write_makefile,  # only used with make in order to generate auto.conf
                   "header": write_header,
                   "cmake": write_cmake,
-                  "docs": write_docs,
+                  "docs": gen_kconfig_doc.write_docs,
                   "json": write_json,
                   "json_menus": write_json_menus,
                   }
