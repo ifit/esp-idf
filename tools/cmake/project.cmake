@@ -443,6 +443,7 @@ macro(project project_name)
     add_custom_target(_project_elf_src DEPENDS "${project_elf_src}")
     add_executable(${project_elf} "${project_elf_src}")
     add_dependencies(${project_elf} _project_elf_src)
+    set(IDF_PROJECT_EXECUTABLE ${project_elf})
 
     if(test_components)
         target_link_libraries(${project_elf} "-Wl,--whole-archive")
