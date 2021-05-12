@@ -22,10 +22,11 @@
 
 #pragma once
 
+#warning "Got to adc_hal.h in SOC 2"
 #include "hal/adc_ll.h"
 #include "hal/adc_types.h"
 
-#include_next "hal/adc_hal.h"
+#include "hal/adc_hal.h"
 
 #ifdef __cplusplus
 extern "C" {

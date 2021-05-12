@@ -2,6 +2,7 @@
 
 #include "hal/adc_types.h"
 #include "hal/adc_ll.h"
+#warning "Got to adc_hal.h in SOC 1"
 
 /*---------------------------------------------------------------
                     Common setting

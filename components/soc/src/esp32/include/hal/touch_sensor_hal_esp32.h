@@ -24,8 +24,9 @@
 
 #include "hal/touch_sensor_ll.h"
 #include "hal/touch_sensor_types.h"
+#warning "SOC/src/esp32/include/hal/touch_sensor_hal.h"
 
-#include_next "hal/touch_sensor_hal.h"
+#include "hal/touch_sensor_hal.h"
 
 #ifdef __cplusplus
 extern "C" {

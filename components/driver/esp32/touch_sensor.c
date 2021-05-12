@@ -38,7 +38,9 @@
 #endif
 #include "sys/queue.h"
 #include "hal/touch_sensor_types.h"
-#include "hal/touch_sensor_hal.h"
+#if CONFIG_IDF_TARGET_ESP32
+#include "hal/touch_sensor_hal_esp32.h"
+#endif //CONFIG_IDF_TARGET_ESP32
 
 typedef struct {
     TimerHandle_t timer;

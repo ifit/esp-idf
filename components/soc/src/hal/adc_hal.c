@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "hal/adc_hal.h"
+#include "hal/adc_hal_esp32.h"
 
 void adc_hal_init(void)
 {
