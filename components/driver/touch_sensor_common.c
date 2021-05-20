@@ -30,6 +30,7 @@
 
 #if CONFIG_IDF_TARGET_ESP32
 #include "esp32/rom/ets_sys.h"
+#include "hal/touch_sensor_hal_esp32.h"
 #elif CONFIG_IDF_TARGET_ESP32S2
 #include "esp32s2/rom/ets_sys.h"
 #endif

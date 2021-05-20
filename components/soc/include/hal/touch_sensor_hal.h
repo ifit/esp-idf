@@ -24,6 +24,7 @@
 
 #include "hal/touch_sensor_ll.h"
 #include "hal/touch_sensor_types.h"
+#warning "SOC include/hal/touch_sensor_hal.h"
 
 #ifdef __cplusplus
 extern "C" {

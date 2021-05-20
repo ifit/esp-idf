@@ -25,6 +25,7 @@ set(srcs
 
 set(includes "include")
 
+message("DRIVERS CMAKELISTS IDF_TARGET: ${IDF_TARGET}")
 if(IDF_TARGET STREQUAL "esp32")
     # SDMMC and MCPWM are in ESP32 only.
     list(APPEND srcs "mcpwm.c"

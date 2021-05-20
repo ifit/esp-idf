@@ -38,7 +38,7 @@
 #endif
 #include "sys/queue.h"
 #include "hal/adc_types.h"
-#include "hal/adc_hal.h"
+#include "hal/adc_hal_esp32.h"
 
 #define ADC_MAX_MEAS_NUM_DEFAULT      (255)
 #define ADC_MEAS_NUM_LIM_DEFAULT      (1)

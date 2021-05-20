@@ -1,6 +1,7 @@
 include(ExternalProject)
 
 function(__kconfig_init)
+    message(STATUS "***Starting up __kconfig_init()***")
     if(${CMAKE_HOST_SYSTEM_NAME} MATCHES "FreeBSD")
         set(MAKE_COMMMAND "gmake")
     else()
@@ -88,8 +89,20 @@ function(__kconfig_init)
         idf_build_set_property(__MENUCONFIG_DEPENDS "${menuconfig_depends}")
     endif()
 
+    if(NOT DEFINED OVERRIDE_ROOT_KCONF)
+        if(BOOTLOADER_BUILD)
+        set(ROOT_KCONFIG ${ESP_CMAKE_TOOL_DIR}/../../esp_bootloader.kconf)
+        else() 
+            set(ROOT_KCONFIG ${IDF_PATH}/Kconfig)
+        endif()
+    	
+    else()
+    	message(STATUS "Using Override Kconfig")
+    	set(ROOT_KCONFIG ${OVERRIDE_ROOT_KCONF})
+    endif()
+
     idf_build_get_property(idf_path IDF_PATH)
-    idf_build_set_property(__ROOT_KCONFIG ${idf_path}/Kconfig)
+    idf_build_set_property(__ROOT_KCONFIG ${ROOT_KCONFIG})
     idf_build_set_property(__ROOT_SDKCONFIG_RENAME ${idf_path}/sdkconfig.rename)
     idf_build_set_property(__OUTPUT_SDKCONFIG 1)
 endfunction()
@@ -100,6 +113,7 @@ endfunction()
 # set prior to calling it.
 #
 function(__kconfig_component_init component_target)
+    message(STATUS "***Starting up __kconfig_component_init()***")
     __component_get_property(component_dir ${component_target} COMPONENT_DIR)
     file(GLOB kconfig "${component_dir}/Kconfig")
     __component_set_property(${component_target} KCONFIG "${kconfig}")
@@ -114,6 +128,7 @@ endfunction()
 # dependencies.
 #
 function(__kconfig_generate_config sdkconfig sdkconfig_defaults)
+    message(STATUS "***Starting up __kconfig_generate_config()***")
     # List all Kconfig and Kconfig.projbuild in known components
     idf_build_get_property(component_targets __COMPONENT_TARGETS)
     idf_build_get_property(build_component_targets __BUILD_COMPONENT_TARGETS)
@@ -145,6 +160,11 @@ function(__kconfig_generate_config sdkconfig sdkconfig_defaults)
     string(REPLACE ";" " " kconfig_projbuilds "${kconfig_projbuilds}")
     string(REPLACE ";" " " sdkconfig_renames "${sdkconfig_renames}")
 
+	set(ICON_KCONFIGS_PROJBUILD ${PROJECT_BINARY_DIR}/PROJBUILD.kconf PARENT_SCOPE)
+    set(ICON_KCONFIGS_PROJBUILD ${PROJECT_BINARY_DIR}/PROJBUILD.kconf)
+    set(ICON_KCONFIGS_COMPONENTS ${PROJECT_BINARY_DIR}/COMPONENTSBUILD.kconf PARENT_SCOPE)
+    set(ICON_KCONFIGS_COMPONENTS ${PROJECT_BINARY_DIR}/COMPONENTSBUILD.kconf)
+
     # These are the paths for files which will contain the generated "source" lines for COMPONENT_KCONFIGS and
     # COMPONENT_KCONFIGS_PROJBUILD
     set(kconfigs_projbuild_path "${CMAKE_CURRENT_BINARY_DIR}/kconfigs_projbuild.in")
@@ -154,7 +174,25 @@ function(__kconfig_generate_config sdkconfig sdkconfig_defaults)
     # to work around command line length limits for execute_process
     # on Windows & CMake < 3.11
     set(config_env_path "${CMAKE_CURRENT_BINARY_DIR}/config.env")
-    configure_file("${idf_path}/tools/kconfig_new/config.env.in" ${config_env_path})
+    if(DEFINED ESP_SDK_KCONFIG)
+        get_filename_component(CONF_ENV_PATH ${ESP_SDK_KCONFIG} DIRECTORY)
+        message(STATUS "CONF_ENV_PATH: ${CONF_ENV_PATH}")
+        if(BOOTLOADER_BUILD)
+        set(TARGET_ICON_CONFIG ${CONF_ENV_PATH}/esp_bootloader.env.in)
+        else()
+            set(TARGET_ICON_CONFIG ${CONF_ENV_PATH}/config.env.in)
+        endif(BOOTLOADER_BUILD)
+        if(EXISTS ${TARGET_ICON_CONFIG})
+            message(STATUS "using custom config.env.in")
+            configure_file("${TARGET_ICON_CONFIG}" ${config_env_path})
+        else()
+            message(FATAL_ERROR "${TARGET_ICON_CONFIG} does not exist")
+        endif(EXISTS ${TARGET_ICON_CONFIG})
+    else()
+        message(FATAL_ERROR "Usinng the ESP SDK config.env.in")
+        configure_file("${idf_path}/tools/kconfig_new/config.env.in" ${config_env_path})
+    endif(DEFINED ESP_SDK_KCONFIG)
+    message(STATUS "config_env_path: ${config_env_path}")
     idf_build_set_property(CONFIG_ENV_PATH ${config_env_path})
 
     if(sdkconfig_defaults)
@@ -175,10 +213,94 @@ function(__kconfig_generate_config sdkconfig sdkconfig_defaults)
     idf_build_get_property(root_sdkconfig_rename __ROOT_SDKCONFIG_RENAME)
     idf_build_get_property(python PYTHON)
 
-    set(prepare_kconfig_files_command
-        ${python} ${idf_path}/tools/kconfig_new/prepare_kconfig_files.py
-        --env-file ${config_env_path})
+    message(STATUS "root_kconfig: ${root_kconfig}")
 
+    if(DEFINED ICON_GEN_KCONFIG_PY)
+        set(gen_kconfig_base_command
+            ${PYTHON} ${ICON_GEN_KCONFIG_PY}
+        )
+    endif()
+
+    idf_build_get_property(local_kconfigs_projbuild KCONFIG_PROJBUILDS)
+	string(REPLACE ";" " " kconfig_projbuilds_space "${local_kconfigs_projbuild}")
+	string(STRIP ${kconfig_projbuilds_space} kconfig_projbuilds_space)
+	idf_build_get_property(local_kconfigs KCONFIGS)
+	string(REPLACE ";" " " kconfigs_space "${local_kconfigs}")
+	string(STRIP ${kconfigs_space} kconfigs_space)
+
+	if(DEFINED ICON_GEN_KCONFIG_PY)
+	    #Generate the KCONFIG file for the PROJBUILD
+        message(STATUS "Generating ${ICON_KCONFIGS_PROJBUILD}")
+        if(BOOTLOADER_BUILD)
+            message(STATUS "\tBOOTLOADER BUILD")
+        endif()
+		execute_process(
+			COMMAND ${gen_kconfig_base_command}
+			--out_name ${ICON_KCONFIGS_PROJBUILD}
+			--sources ${kconfig_projbuilds_space}
+			RESULT_VARIABLE gen_result
+		)
+		if(gen_result)
+	        message(FATAL_ERROR "Failed to run kconfig gen (${gen_kconfig_base_command}). Error ${gen_result}")
+		endif()
+	
+		message(STATUS "Generating ${ICON_KCONFIGS_COMPONENTS}")
+        #Generate Kconfig for the Components
+		execute_process(
+			COMMAND ${gen_kconfig_base_command}
+			--out_name ${ICON_KCONFIGS_COMPONENTS}
+			--sources ${kconfigs_space}
+			RESULT_VARIABLE gen_result
+		)
+		if(gen_result)
+	        message(FATAL_ERROR "Failed to run kconfig gen (${gen_kconfig_base_command}). Error ${gen_result}")
+		endif()
+    endif()
+
+    if(EXISTS ${ESP_SDK_KCONFIG})
+		set(menuconfig_command
+        "IDF_CMAKE=y"
+        "KCONFIG_CONFIG=${sdkconfig}"
+        "IDF_TARGET=${idf_target}"
+        "ESP_SDK_KCONFIG=${ESP_SDK_KCONFIG}"
+        "ICON_KCONFIGS_PROJBUILD=${ICON_KCONFIGS_PROJBUILD}"
+    	"ICON_KCONFIGS_COMPONENTS=${ICON_KCONFIGS_COMPONENTS}"
+        "ICON_HAL_KCONF=${ICON_HAL_KCONF}"
+        "AWS_KCONFIG=${AWS_KCONFIG}"
+    	"ICON_HAL_DIR=${ICON_HAL_DIR}"
+    	"IDF_PATH=${IDF_PATH}"
+        ${PYTHON} -m menuconfig ${root_kconfig}
+        )
+    else()
+		set(menuconfig_command
+		${CMAKE_COMMAND} -E env
+        "COMPONENT_KCONFIGS=${kconfigs}"
+        "COMPONENT_KCONFIGS_PROJBUILD=${kconfig_projbuilds}"
+        "IDF_CMAKE=y"
+        "KCONFIG_CONFIG=${sdkconfig}"
+        "IDF_TARGET=${idf_target}"
+        ${MCONF} ${root_kconfig})
+	endif()
+
+
+	if( EXISTS ${KCONF_CONFGEN_PY})
+		message(FATAL_ERROR "Using override confgen")
+	    set(confgen_basecommand
+	        ${PYTHON} ${KCONF_CONFGEN_PY}
+	        --kconfig ${ROOT_KCONFIG}
+	        --config ${SDKCONFIG}
+	        ${defaults_arg}
+	        --env "COMPONENT_KCONFIGS=${kconfigs}"
+	        --env "COMPONENT_KCONFIGS_PROJBUILD=${kconfigs_projbuild}"
+	        --env "IDF_CMAKE=y"
+	        --env "ICON_KCONFIGS_PROJBUILD=${ICON_KCONFIGS_PROJBUILD}"
+	        --env "ICON_KCONFIGS_COMPONENTS=${ICON_KCONFIGS_COMPONENTS}"
+	        --env "ESP_SDK_KCONFIG=${ESP_SDK_KCONFIG}"
+	        --env "ICON_HAL_DIR=${ICON_HAL_DIR}"
+            --env "ICON_HAL_KCONF=${ICON_HAL_KCONF}"
+            --env "AWS_KCONFIG=${AWS_KCONFIG}")
+    else()
+    message(STATUS "Using confgen ${config_env_path}")
     set(confgen_basecommand
         ${python} ${idf_path}/tools/kconfig_new/confgen.py
         --kconfig ${root_kconfig}
@@ -186,6 +308,7 @@ function(__kconfig_generate_config sdkconfig sdkconfig_defaults)
         --config ${sdkconfig}
         ${defaults_arg}
         --env-file ${config_env_path})
+    endif()
 
     idf_build_get_property(build_dir BUILD_DIR)
     set(config_dir ${build_dir}/config)
@@ -196,13 +319,18 @@ function(__kconfig_generate_config sdkconfig sdkconfig_defaults)
     # Generate the config outputs
     set(sdkconfig_cmake ${config_dir}/sdkconfig.cmake)
     set(sdkconfig_header ${config_dir}/sdkconfig.h)
+    set(AUTOCONF_H ${sdkconfig_header} PARENT_SCOPE)
+	set(AUTOCONF_H ${sdkconfig_header})
+	message(STATUS "set AUTOCONF_H to ${AUTOCONF_H}")
     set(sdkconfig_json ${config_dir}/sdkconfig.json)
     set(sdkconfig_json_menus ${config_dir}/kconfig_menus.json)
 
+    message(STATUS "sdkconfig_header: ${sdkconfig_header}")
+
     idf_build_get_property(output_sdkconfig __OUTPUT_SDKCONFIG)
+    message(STATUS "output_sdkconfig: ${output_sdkconfig}")
     if(output_sdkconfig)
-        execute_process(
-            COMMAND ${prepare_kconfig_files_command})
+    message(STATUS "Generating Kconfig")
         execute_process(
             COMMAND ${confgen_basecommand}
             --output header ${sdkconfig_header}
@@ -212,8 +340,7 @@ function(__kconfig_generate_config sdkconfig sdkconfig_defaults)
             --output config ${sdkconfig}
             RESULT_VARIABLE config_result)
     else()
-        execute_process(
-            COMMAND ${prepare_kconfig_files_command})
+        message(STATUS "output_sdkconfig: ${output_sdkconfig}")
         execute_process(
             COMMAND ${confgen_basecommand}
             --output header ${sdkconfig_header}
@@ -226,7 +353,7 @@ function(__kconfig_generate_config sdkconfig sdkconfig_defaults)
     if(config_result)
         message(FATAL_ERROR "Failed to run confgen.py (${confgen_basecommand}). Error ${config_result}")
     endif()
-
+    message(STATUS "sdkconfig: ${sdkconfig}")
     # Add the generated config header to build specifications.
     idf_build_set_property(INCLUDE_DIRECTORIES ${config_dir} APPEND)
 
@@ -261,30 +388,33 @@ function(__kconfig_generate_config sdkconfig sdkconfig_defaults)
         set(TERM_CHECK_CMD ${python} ${idf_path}/tools/check_term.py)
     endif()
 
-    # Generate the menuconfig target
+    if( NOT DEFINED ICON_HAL_KCONF AND NOT BOOTLOADER_BUILD)
+        message(FATAL_ERROR "ICON_HAL_KCONF must be set")
+    endif()
+
+    # Generate the menuconfig target (uses C-based mconf-idf tool, either prebuilt or via mconf-idf target above)
     add_custom_target(menuconfig
         ${menuconfig_depends}
         # create any missing config file, with defaults if necessary
-        COMMAND ${prepare_kconfig_files_command}
-        COMMAND ${confgen_basecommand}
-        --env "IDF_TARGET=${idf_target}"
-        --dont-write-deprecated
-        --output config ${sdkconfig}
-        COMMAND ${TERM_CHECK_CMD}
-        COMMAND ${CMAKE_COMMAND} -E env
-        "COMPONENT_KCONFIGS_SOURCE_FILE=${kconfigs_path}"
-        "COMPONENT_KCONFIGS_PROJBUILD_SOURCE_FILE=${kconfigs_projbuild_path}"
-        "IDF_CMAKE=y"
-        "KCONFIG_CONFIG=${sdkconfig}"
-        "IDF_TARGET=${idf_target}"
-        ${MENUCONFIG_CMD} ${root_kconfig}
+        COMMAND echo "Running Confgen for ${sdkconfig}"
+        COMMAND ${confgen_basecommand} --env "IDF_TARGET=${idf_target}" --output config ${sdkconfig}
+		COMMAND echo "Running menuconfig command"
+        COMMAND ${menuconfig_command}
         # VERBATIM cannot be used here because it cannot handle ${mconf}="winpty mconf-idf" and the escaping must be
         # done manually
         USES_TERMINAL
+        COMMAND echo "CMAKE Command Complete"
         # additional run of confgen esures that the deprecated options will be inserted into sdkconfig (for backward
         # compatibility)
         COMMAND ${confgen_basecommand} --env "IDF_TARGET=${idf_target}" --output config ${sdkconfig}
         )
+        
+	add_custom_target(just_menuconfig
+		${menuconfig_depends}
+		COMMAND ${menuconfig_command}
+		USES_TERMINAL
+		#COMMAND_EXPAND_LISTS
+		)
 
     # Custom target to run confserver.py from the build tool
     add_custom_target(confserver

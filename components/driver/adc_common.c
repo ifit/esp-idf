@@ -30,6 +30,9 @@
 #include "adc1_private.h"
 
 #include "hal/adc_types.h"
+#ifdef CONFIG_IDF_TARGET_ESP32
+#include "hal/adc_hal_esp32.h"
+#endif //CONFIG_IDF_TARGET_ESP32
 #include "hal/adc_hal.h"
 #include "hal/dac_hal.h"
 
