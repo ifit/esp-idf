@@ -33,7 +33,7 @@ set(CMAKE_ASM_COMPILER ${WORK_PATH}/xtensa-esp32-elf-gcc)
 set(CMAKE_GDB ${WORK_PATH}/xtensa-esp32-elf-gdb)
 set(CMAKE_OBJDUMP ${WORK_PATH}/xtensa-esp32-elf-objdump)
 
-set(CMAKE_C_FLAGS "-mlongcalls -Wno-frame-address" CACHE STRING "C Compiler Base Flags")
+set(CMAKE_C_FLAGS "-mlongcalls -Wno-frame-address -nostdlib" CACHE STRING "C Compiler Base Flags")
 set(CMAKE_ASM_FLAGS "" CACHE STRING "ASM Compiler Base Flags") #  -Wno-frame-address -mtext-section-literals -mlongcalls
 set(CMAKE_CXX_FLAGS "-mlongcalls -Wno-frame-address" CACHE STRING "C++ Compiler Base Flags")
 

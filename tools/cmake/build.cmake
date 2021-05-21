@@ -93,7 +93,7 @@ function(__build_set_default_build_specifications)
 
     list(APPEND compile_definitions "-D_GNU_SOURCE")
 
-    list(APPEND compile_options     "-ffunction-sections"
+    list(APPEND c_compile_options     "-ffunction-sections" # TODO: revert this
                                     "-fdata-sections"
                                     "-fstrict-volatile-bitfields"
                                     # warning-related flags
@@ -115,10 +115,15 @@ function(__build_set_default_build_specifications)
 
     list(APPEND cxx_compile_options "-std=gnu++11")
 
+    message(STATUS "build.cmake building stuff")
     idf_build_set_property(COMPILE_DEFINITIONS "${compile_definitions}" APPEND)
-    idf_build_set_property(COMPILE_OPTIONS "${compile_options}" APPEND)
+    message(STATUS "COMPILE_DEFINITIONS: ${compile_definitions}")
+    idf_build_set_property(COMPILE_OPTIONS "${compile_options}" APPEND) # TODO: one of these adds to the ASM files?
+    message(STATUS "COMPILE_OPTIONS: ${compile_options}")
     idf_build_set_property(C_COMPILE_OPTIONS "${c_compile_options}" APPEND)
+    message(STATUS "C_COMPILE_OPTIONS: ${c_compile_options}")
     idf_build_set_property(CXX_COMPILE_OPTIONS "${cxx_compile_options}" APPEND)
+    message(STATUS "CXX_COMPILE_OPTIONS: ${cxx_compile_options}")
 endfunction()
 
 #

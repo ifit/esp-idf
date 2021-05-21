@@ -296,6 +296,7 @@ int xt_clock_freq(void) __attribute__((deprecated));
 #define INCLUDE_pxTaskGetStackStart			1
 
 #define INCLUDE_xSemaphoreGetMutexHolder    1
+#define INCLUDE_xTimerGetTimerDaemonTaskHandle 1
 
 /* The priority at which the tick interrupt runs.  This should probably be
    kept at 1. */

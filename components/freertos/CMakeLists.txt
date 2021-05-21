@@ -38,6 +38,8 @@ if(CONFIG_ESP32_IRAM_AS_8BIT_ACCESSIBLE_MEMORY)
      list(APPEND srcs "xtensa/xtensa_loadstore_handler.S")
  endif()
 
+ 
+
 # app_trace is required by FreeRTOS headers only when CONFIG_SYSVIEW_ENABLE=y,
 # but requirements can't depend on config options, so always require it.
 idf_component_register(SRCS "${srcs}"
@@ -53,6 +55,8 @@ idf_component_set_property(freertos ORIG_INCLUDE_PATH "${COMPONENT_DIR}/include/
 if(CONFIG_FREERTOS_DEBUG_OCDAWARE)
     target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--undefined=uxTopUsedPriority")
 endif()
+
+# set_source_files_properties("xtensa/xtensa_vectors.S" PROPERTIES COMPILE_OPTIONS "-mtext-section-literals")
 
 set_source_files_properties(
     tasks.c
