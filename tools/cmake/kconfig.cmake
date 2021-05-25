@@ -316,6 +316,18 @@ function(__kconfig_generate_config sdkconfig sdkconfig_defaults)
 
     message(STATUS "Project sdkconfig file ${sdkconfig}")
 
+    set(prepare_kconfig_files_command
+        ${python} ${idf_path}/tools/kconfig_new/prepare_kconfig_files.py
+        --env-file ${config_env_path})
+
+    set(confgen_basecommand
+        ${python} ${idf_path}/tools/kconfig_new/confgen.py
+        --kconfig ${root_kconfig}
+        --sdkconfig-rename ${root_sdkconfig_rename}
+        --config ${sdkconfig}
+        ${defaults_arg}
+        --env-file ${config_env_path})
+
     # Generate the config outputs
     set(sdkconfig_cmake ${config_dir}/sdkconfig.cmake)
     set(sdkconfig_header ${config_dir}/sdkconfig.h)
@@ -330,7 +342,9 @@ function(__kconfig_generate_config sdkconfig sdkconfig_defaults)
     idf_build_get_property(output_sdkconfig __OUTPUT_SDKCONFIG)
     message(STATUS "output_sdkconfig: ${output_sdkconfig}")
     if(output_sdkconfig)
-    message(STATUS "Generating Kconfig")
+        execute_process(
+            COMMAND ${prepare_kconfig_files_command})
+        message(STATUS "Generating Kconfig")
         execute_process(
             COMMAND ${confgen_basecommand}
             --output header ${sdkconfig_header}
@@ -340,6 +354,8 @@ function(__kconfig_generate_config sdkconfig sdkconfig_defaults)
             --output config ${sdkconfig}
             RESULT_VARIABLE config_result)
     else()
+        execute_process(
+            COMMAND ${prepare_kconfig_files_command})
         message(STATUS "output_sdkconfig: ${output_sdkconfig}")
         execute_process(
             COMMAND ${confgen_basecommand}
@@ -396,14 +412,22 @@ function(__kconfig_generate_config sdkconfig sdkconfig_defaults)
     add_custom_target(menuconfig
         ${menuconfig_depends}
         # create any missing config file, with defaults if necessary
-        COMMAND echo "Running Confgen for ${sdkconfig}"
-        COMMAND ${confgen_basecommand} --env "IDF_TARGET=${idf_target}" --output config ${sdkconfig}
-		COMMAND echo "Running menuconfig command"
-        COMMAND ${menuconfig_command}
+        COMMAND ${prepare_kconfig_files_command}
+        COMMAND ${confgen_basecommand}
+        --env "IDF_TARGET=${idf_target}"
+        --dont-write-deprecated
+        --output config ${sdkconfig}
+        COMMAND ${TERM_CHECK_CMD}
+        COMMAND ${CMAKE_COMMAND} -E env
+        "COMPONENT_KCONFIGS_SOURCE_FILE=${ICON_KCONFIGS_COMPONENTS}"
+        "COMPONENT_KCONFIGS_PROJBUILD_SOURCE_FILE=${ICON_KCONFIGS_PROJBUILD}"
+        "IDF_CMAKE=y"
+        "KCONFIG_CONFIG=${sdkconfig}"
+        "IDF_TARGET=${idf_target}"
+        ${MENUCONFIG_CMD} ${root_kconfig}
         # VERBATIM cannot be used here because it cannot handle ${mconf}="winpty mconf-idf" and the escaping must be
         # done manually
         USES_TERMINAL
-        COMMAND echo "CMAKE Command Complete"
         # additional run of confgen esures that the deprecated options will be inserted into sdkconfig (for backward
         # compatibility)
         COMMAND ${confgen_basecommand} --env "IDF_TARGET=${idf_target}" --output config ${sdkconfig}

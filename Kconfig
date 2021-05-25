@@ -162,7 +162,7 @@ mainmenu "Espressif IoT Development Framework Configuration"
 
     endmenu # Build type
 
-    source "$COMPONENT_KCONFIGS_PROJBUILD_SOURCE_FILE"
+    source "$ICON_KCONFIGS_PROJBUILD"
 
     menu "Compiler options"
 
@@ -331,7 +331,7 @@ mainmenu "Espressif IoT Development Framework Configuration"
     endmenu # Compiler Options
 
     menu "Component config"
-        source "$COMPONENT_KCONFIGS_SOURCE_FILE"
+        # source "$COMPONENT_KCONFIGS_SOURCE_FILE"
     endmenu
 
     menu "Compatibility options"

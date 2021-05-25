@@ -1,4 +1,8 @@
 message(STATUS "importing the toolchain cmake directory")
+message(STATUS "CMAKE_SOURCE_DIR: ${CMAKE_SOURCE_DIR}")
+message(STATUS "IDF_PATH: ${IDF_PATH}")
+message(STATUS "CMAKE_HOST_SYSTEM_NAME: ${CMAKE_HOST_SYSTEM_NAME}")
+message(STATUS "ICON_TOOLCHAIN_DIR: ${ICON_TOOLCHAIN_DIR}")
 
 if (CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
     get_filename_component( WORK_PATH "${ICON_TOOLCHAIN_DIR}/mac/xtensa-esp32-elf/bin" ABSOLUTE)
@@ -25,6 +29,7 @@ elseif (CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux")
 else()
     message( FATAL_ERROR "Cannot Configure for ${CMAKE_HOST_SYSTEM_NAME}")
 endif()
+
 
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_C_COMPILER ${WORK_PATH}/xtensa-esp32-elf-gcc)
