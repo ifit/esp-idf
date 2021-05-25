@@ -44,7 +44,4 @@ set(CMAKE_CXX_FLAGS "-mlongcalls -Wno-frame-address" CACHE STRING "C++ Compiler 
 
 message(STATUS "CMAKE_ASM_FLAGS: ${CMAKE_ASM_FLAGS}")
 
-# Can be removed after gcc 5.2.0 support is removed (ref GCC_NOT_5_2_0)
-set(CMAKE_EXE_LINKER_FLAGS "-nostdlib" CACHE STRING "Linker Base Flags")
-
 
