@@ -115,7 +115,9 @@ externalproject_add(bootloader
     SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/subproject"
     BINARY_DIR "${BOOTLOADER_BUILD_DIR}"
     CMAKE_ARGS  -DSDKCONFIG=${sdkconfig} -DIDF_PATH=${idf_path} -DIDF_TARGET=${idf_target}
-                -DPYTHON_DEPS_CHECKED=1 -DPYTHON=${python}
+                -DPYTHON_DEPS_CHECKED=1 -DPYTHON=${python} -DESP_SDK_KCONFIG=${ESP_SDK_KCONFIG}
+                -DICON_GEN_KCONFIG_PY=${ICON_GEN_KCONFIG_PY} -DICON_TOOLCHAIN_DIR=${ICON_TOOLCHAIN_DIR}
+                -DROOT_PROJECT_DIR=${CMAKE_SOURCE_DIR}
                 -DEXTRA_COMPONENT_DIRS=${CMAKE_CURRENT_LIST_DIR}
                 ${sign_key_arg} ${ver_key_arg}
                 # LEGACY_INCLUDE_COMMON_HEADERS has to be passed in via cache variable since
