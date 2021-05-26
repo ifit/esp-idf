@@ -430,6 +430,13 @@ function(__kconfig_generate_config sdkconfig sdkconfig_defaults)
         "IDF_CMAKE=y"
         "KCONFIG_CONFIG=${sdkconfig}"
         "IDF_TARGET=${idf_target}"
+        "ESP_SDK_KCONFIG=${ESP_SDK_KCONFIG}"
+        "ICON_KCONFIGS_PROJBUILD=${ICON_KCONFIGS_PROJBUILD}"
+    	"ICON_KCONFIGS_COMPONENTS=${ICON_KCONFIGS_COMPONENTS}"
+        "ICON_HAL_KCONF=${ICON_HAL_KCONF}"
+        "AWS_KCONFIG=${AWS_KCONFIG}"
+    	"ICON_HAL_DIR=${ICON_HAL_DIR}"
+    	"IDF_PATH=${IDF_PATH}"
         ${MENUCONFIG_CMD} ${root_kconfig}
         # VERBATIM cannot be used here because it cannot handle ${mconf}="winpty mconf-idf" and the escaping must be
         # done manually
