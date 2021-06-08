@@ -31,7 +31,6 @@ endif()
 
 # Initialize build target for this build using the environment variable or
 # value passed externally.
-message(STATUS "***Starting up __target_init()***")
 __target_init()
 
 #
@@ -40,7 +39,6 @@ __target_init()
 # changes (if it is used).
 #
 function(__project_get_revision var)
-    message(STATUS "***Starting up __project_get_revision()***")
     set(_project_path "${CMAKE_CURRENT_LIST_DIR}")
     if(NOT DEFINED PROJECT_VER)
         if(EXISTS "${_project_path}/version.txt")
@@ -65,7 +63,6 @@ endfunction()
 # that doubles as an overview of some of the more important build properties.
 #
 function(__project_info test_components)
-    message(STATUS "***Starting up __project_info()***")
     idf_build_get_property(prefix __PREFIX)
     idf_build_get_property(_build_components BUILD_COMPONENTS)
     idf_build_get_property(build_dir BUILD_DIR)
@@ -137,7 +134,6 @@ function(__project_info test_components)
 endfunction()
 
 function(__project_init components_var test_components_var)
-    message(STATUS "***Starting up __project_init()***")
     # Use EXTRA_CFLAGS, EXTRA_CXXFLAGS and EXTRA_CPPFLAGS to add more priority options to the compiler
     # EXTRA_CPPFLAGS is used for both C and C++
     # Unlike environments' CFLAGS/CXXFLAGS/CPPFLAGS which work for both host and target build,
@@ -293,7 +289,6 @@ macro(project project_name)
     # call later using external COMPONENT_DIRS, COMPONENTS_DIRS, EXTRA_COMPONENTS_DIR,
     # EXTRA_COMPONENTS_DIRS, COMPONENTS, EXLUDE_COMPONENTS, TEST_COMPONENTS,
     # TEST_EXLUDE_COMPONENTS, TESTS_ALL, BUILD_TESTS
-    message(STATUS "***Starting up project_name MACRO***")
     __project_init(components test_components)
 
     __target_set_toolchain()

@@ -1,7 +1,6 @@
 include(ExternalProject)
 
 function(__kconfig_init)
-    message(STATUS "***Starting up __kconfig_init()***")
     if(${CMAKE_HOST_SYSTEM_NAME} MATCHES "FreeBSD")
         set(MAKE_COMMMAND "gmake")
     else()
@@ -119,7 +118,6 @@ endfunction()
 # set prior to calling it.
 #
 function(__kconfig_component_init component_target)
-    message(STATUS "***Starting up __kconfig_component_init()***")
     __component_get_property(component_dir ${component_target} COMPONENT_DIR)
     file(GLOB kconfig "${component_dir}/Kconfig")
     __component_set_property(${component_target} KCONFIG "${kconfig}")
@@ -134,7 +132,6 @@ endfunction()
 # dependencies.
 #
 function(__kconfig_generate_config sdkconfig sdkconfig_defaults)
-    message(STATUS "***Starting up __kconfig_generate_config()***")
     # List all Kconfig and Kconfig.projbuild in known components
     idf_build_get_property(component_targets __COMPONENT_TARGETS)
     idf_build_get_property(build_component_targets __BUILD_COMPONENT_TARGETS)

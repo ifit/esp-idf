@@ -30,26 +30,6 @@ if(NOT __idf_env_set)
     endif()
 
     # Include other CMake modules required
-    # set(CMAKE_MODULE_PATH
-    #     "${idf_path}/tools/cmake"
-    #     "${idf_path}/tools/cmake/third_party"
-    #     ${CMAKE_MODULE_PATH})
-    # include(build)
-
-    # set(IDF_PATH ${idf_path})
-
-    # include(GetGitRevisionDescription)
-    # include(git_submodules)
-    # include(crosstool_version_check)
-    # include(kconfig)
-    # include(component)
-    # include(utilities)
-    # include(targets)
-    # include(ldgen)
-    # include(version)
-
-    #TODO: go through each one to see what is causing the build errors
-    # Include other CMake modules required
     set(CMAKE_MODULE_PATH
         "${CMAKE_CURRENT_LIST_DIR}/tools/cmake"
         "${CMAKE_CURRENT_LIST_DIR}/tools/cmake/third_party"
@@ -60,26 +40,15 @@ if(NOT __idf_env_set)
 
     message(STATUS "CMAKE_CURRENT_LIST_DIR: ${CMAKE_CURRENT_LIST_DIR}")
     
-    message(STATUS "**********Include GetGitRevisionDescription")
     include(${CMAKE_CURRENT_LIST_DIR}/third_party/GetGitRevisionDescription.cmake)
-    message(STATUS "**********Include git_submodules")
     include(${CMAKE_CURRENT_LIST_DIR}/git_submodules.cmake)
-    message(STATUS "**********Include crosstool_version_check")
     include(${CMAKE_CURRENT_LIST_DIR}/crosstool_version_check.cmake)
-    message(STATUS "**********Include kconfig")
-    # set(KCONFIG_CMAKE_DIR ${CMAKE_CURRENT_LIST_DIR}/../../../BUILD_HELPERS/esp32/esp-cmake-tools/cmake)
     set(KCONFIG_CMAKE_DIR ${CMAKE_CURRENT_LIST_DIR})
-    message(STATUS "KCONFIG_CMAKE_DIR: ${KCONFIG_CMAKE_DIR}")
     include(${KCONFIG_CMAKE_DIR}/kconfig.cmake)
-    message(STATUS "**********Include component")
     include(${CMAKE_CURRENT_LIST_DIR}/component.cmake)
-    message(STATUS "**********Include utilities")
     include(${CMAKE_CURRENT_LIST_DIR}/utilities.cmake)
-    message(STATUS "**********Include targets")
     include(${CMAKE_CURRENT_LIST_DIR}/targets.cmake)
-    message(STATUS "**********Include ldgen")
     include(${CMAKE_CURRENT_LIST_DIR}/ldgen.cmake)
-    message(STATUS "**********Include version")
     include(${CMAKE_CURRENT_LIST_DIR}/version.cmake)
 
     __build_init("${idf_path}")
