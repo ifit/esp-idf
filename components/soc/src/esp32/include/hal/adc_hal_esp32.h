@@ -22,7 +22,6 @@
 
 #pragma once
 
-#warning "Got to adc_hal.h in SOC 2"
 #include "hal/adc_ll.h"
 #include "hal/adc_types.h"
 
