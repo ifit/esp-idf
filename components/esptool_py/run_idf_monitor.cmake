@@ -17,5 +17,6 @@ if(NOT IDF_MONITOR OR NOT ELF_FILE)
 endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/get_port_args.cmake")
-set(CMD "${IDF_MONITOR} ${port_arg} ${baud_arg} ${ELF_FILE}")
+set(CMD "${PYTHON_EXECUTABLE} ${IDF_MONITOR} ${port_arg} ${baud_arg} ${ELF_FILE}")
+message(STATUS "CMD: ${CMD}")
 include("${CMAKE_CURRENT_LIST_DIR}/run_cmd.cmake")
