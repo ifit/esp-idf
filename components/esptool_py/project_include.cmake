@@ -125,10 +125,12 @@ endif()
 
 add_custom_target(erase_flash
     COMMAND ${CMAKE_COMMAND}
-    -D PYTHON_EXECUTABLE="${PYTHON_EXECUTABLE}"
     -D IDF_PATH="${idf_path}"
     -D ESPTOOLPY="${ESPTOOLPY}"
     -D ESPTOOL_ARGS="erase_flash"
+    -D ESP_CMAKE_TOOL_DIR="${ESP_CMAKE_TOOL_DIR}"
+    -D ESPPORT="${ESPPORT}"
+    -D ESPBAUD="${ESPBAUD}"
     -P run_esptool.cmake
     WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
     USES_TERMINAL
@@ -137,12 +139,15 @@ add_custom_target(erase_flash
 set(MONITOR_PATH "$ENV{PATH}:${ESPRESSIF_TOOLCHAIN_PATH}")
 add_custom_target(monitor
     COMMAND ${CMAKE_COMMAND}
-    -D MONITOR_PATH="${MONITOR_PATH}"
     -D PYTHON_EXECUTABLE="${PYTHON_EXECUTABLE}"
     -D IDF_PATH="${idf_path}"
     -D IDF_MONITOR="${idf_path}/tools/idf_monitor.py"
-    -D ELF_FILE="${elf_dir}/${elf}"
+    -D ELF_FILE="${elf}"
     -D WORKING_DIRECTORY="${build_dir}"
+    -D ESP_CMAKE_TOOL_DIR="${ESP_CMAKE_TOOL_DIR}"
+    -D ESPPORT="${ESPPORT}"
+    -D ESPBAUD="${ESPBAUD}"
+    -D MONITOR_PATH="${MONITOR_PATH}"
     -P run_idf_monitor.cmake
     WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
     USES_TERMINAL
