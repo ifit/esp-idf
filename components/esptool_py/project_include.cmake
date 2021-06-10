@@ -199,8 +199,11 @@ function(esptool_py_flash_target target_name main_args sub_args)
 
     add_custom_target(${target_name}
         COMMAND ${CMAKE_COMMAND}
+        -D PYTHON_EXECUTABLE="${PYTHON_EXECUTABLE}"
         -D IDF_PATH="${idf_path}"
         -D ESPTOOLPY="${ESPTOOLPY}"
+        -D ESPPORT="${ESPPORT}"
+        -D ESPBAUD="${ESPBAUD}"
         -D ESPTOOL_ARGS="${main_args};write_flash;@${target_name}_args"
         -D WORKING_DIRECTORY="${build_dir}"
         -P ${esptool_py_dir}/run_esptool.cmake
@@ -221,8 +224,11 @@ $<JOIN:$<TARGET_PROPERTY:${target_name},IMAGES>,\n>")
     if(CONFIG_SECURE_FLASH_ENCRYPTION_MODE_DEVELOPMENT)
         add_custom_target(encrypted-${target_name}
             COMMAND ${CMAKE_COMMAND}
+            -D PYTHON_EXECUTABLE="${PYTHON_EXECUTABLE}"
             -D IDF_PATH="${idf_path}"
             -D ESPTOOLPY="${ESPTOOLPY}"
+            -D ESPPORT="${ESPPORT}"
+            -D ESPBAUD="${ESPBAUD}"
             -D ESPTOOL_ARGS="${main_args};write_flash;@encrypted_${target_name}_args"
             -D WORKING_DIRECTORY="${build_dir}"
             -P ${esptool_py_dir}/run_esptool.cmake
