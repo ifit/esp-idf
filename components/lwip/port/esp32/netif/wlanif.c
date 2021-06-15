@@ -54,6 +54,13 @@
 #include "esp_netif_net_stack.h"
 #include "esp_compiler.h"
 
+#ifdef CONFIG_ICON_MODEL_NAME
+#ifdef CONFIG_LWIP_LOCAL_HOSTNAME
+#undef CONFIG_LWIP_LOCAL_HOSTNAME
+#define CONFIG_LWIP_LOCAL_HOSTNAME "IFIT " CONFIG_ICON_MODEL_NAME
+#endif //CONFIG_LWIP_LOCAL_HOSTNAME
+#endif //CONFIG_ICON_MODEL_NAME
+
 #if !ESP_L2_TO_L3_COPY
 /**
  * @brief Free resources allocated in L2 layer

@@ -38,6 +38,13 @@ choice BT_NIMBLE_MEM_ALLOC_MODE
 
 endchoice #BT_NIMBLE_MEM_ALLOC_MODE
 
+config BT_HOST_BASED_PRIVACY
+    bool "Use host based privacy"
+    default y
+    depends on BT_NIMBLE_ENABLED
+    help
+        Configure whether to use host based privacy
+
 config BT_NIMBLE_MAX_CONNECTIONS
     int "Maximum number of concurrent connections"
     range 1 9
@@ -365,3 +372,11 @@ config BT_NIMBLE_CRYPTO_STACK_MBEDTLS
     help
         Enable this option to choose mbedTLS instead of TinyCrypt for crypto
         computations.
+
+config BT_NIMBLE_BLE_GATT_MAX_PROCS
+    int "Max number of BLE Gatt processes"
+    default 4
+    range 4 20
+    depends on BT_NIMBLE_ENABLED
+    help
+        This value defines the max number of BLE GATT processes
